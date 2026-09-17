@@ -1,5 +1,6 @@
 "use client";
 
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 
 import {
@@ -9,6 +10,70 @@ import {
 import {
   useStoreProducts,
 } from "@/hooks/useStoreProducts";
+
+
+type SupportMessage = {
+  id: string;
+  sender: "customer" | "admin";
+  text: string;
+  createdAt: string;
+};
+
+type SupportConversation = {
+  id: string;
+  customerName: string;
+  customerEmail: string;
+  status: "Open" | "Closed";
+  createdAt: string;
+  updatedAt: string;
+  messages: SupportMessage[];
+};
+
+const SUPPORT_STORAGE_KEY =
+  "nova-support-conversations";
+
+const CUSTOMER_CHAT_ID_KEY =
+  "nova-support-conversation-id";
+
+const CUSTOMER_CHAT_LAST_SEEN_KEY =
+  "nova-support-last-seen";
+
+const WISHLIST_STORAGE_KEY =
+  "nova-wishlist";
+
+function getStoredConversations(): SupportConversation[] {
+  if (typeof window === "undefined") {
+    return [];
+  }
+
+  const saved =
+    window.localStorage.getItem(
+      SUPPORT_STORAGE_KEY,
+    );
+
+  if (!saved) {
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(saved);
+
+    return Array.isArray(parsed)
+      ? parsed
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+type CustomerSession = {
+  id: string;
+  name: string;
+  email: string;
+};
+
+const CUSTOMER_SESSION_KEY =
+  "nova-customer-session";
 
 const categories = [
   {
@@ -46,6 +111,440 @@ export default function Home() {
     totalItems,
   } = useCart();
 
+  const [chatOpen, setChatOpen] =
+    useState(false);
+
+  const [chatName, setChatName] =
+    useState("");
+
+  const [chatEmail, setChatEmail] =
+    useState("");
+
+  const [chatMessage, setChatMessage] =
+    useState("");
+
+  const [conversation, setConversation] =
+    useState<SupportConversation | null>(
+      null,
+    );
+
+  const [chatError, setChatError] =
+    useState("");
+
+  const [unreadCount, setUnreadCount] =
+    useState(0);
+
+  const [productSearch, setProductSearch] =
+    useState("");
+
+  const [selectedCategory, setSelectedCategory] =
+    useState("All");
+
+  const [wishlistIds, setWishlistIds] =
+    useState<number[]>([]);
+
+  const [wishlistOnly, setWishlistOnly] =
+    useState(false);
+
+  const [addedProductId, setAddedProductId] =
+    useState<number | null>(null);
+
+  const [cartToast, setCartToast] =
+    useState("");
+
+  const [cartPulse, setCartPulse] =
+    useState(false);
+
+  const [customerSession, setCustomerSession] =
+    useState<CustomerSession | null>(
+      null,
+    );
+
+  const cartFeedbackTimer =
+    useRef<ReturnType<typeof setTimeout> | null>(
+      null,
+    );
+
+  const filteredProducts = useMemo(() => {
+    const normalizedSearch =
+      productSearch.trim().toLowerCase();
+
+    return products.filter((product) => {
+      const matchesCategory =
+        selectedCategory === "All" ||
+        product.category === selectedCategory;
+
+      const matchesSearch =
+        normalizedSearch.length === 0 ||
+        product.name
+          .toLowerCase()
+          .includes(normalizedSearch) ||
+        product.category
+          .toLowerCase()
+          .includes(normalizedSearch);
+
+      const matchesWishlist =
+        !wishlistOnly ||
+        wishlistIds.includes(product.id);
+
+      return (
+        matchesCategory &&
+        matchesSearch &&
+        matchesWishlist
+      );
+    });
+  }, [
+    products,
+    productSearch,
+    selectedCategory,
+    wishlistIds,
+    wishlistOnly,
+  ]);
+
+  useEffect(() => {
+    function syncCustomerSession() {
+      const savedSession =
+        window.localStorage.getItem(
+          CUSTOMER_SESSION_KEY,
+        );
+
+      if (!savedSession) {
+        setCustomerSession(null);
+        return;
+      }
+
+      try {
+        setCustomerSession(
+          JSON.parse(
+            savedSession,
+          ),
+        );
+      } catch {
+        setCustomerSession(null);
+        window.localStorage.removeItem(
+          CUSTOMER_SESSION_KEY,
+        );
+      }
+    }
+
+    syncCustomerSession();
+
+    window.addEventListener(
+      "storage",
+      syncCustomerSession,
+    );
+
+    window.addEventListener(
+      "focus",
+      syncCustomerSession,
+    );
+
+    return () => {
+      window.removeEventListener(
+        "storage",
+        syncCustomerSession,
+      );
+
+      window.removeEventListener(
+        "focus",
+        syncCustomerSession,
+      );
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (cartFeedbackTimer.current) {
+        clearTimeout(
+          cartFeedbackTimer.current,
+        );
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    function syncWishlist() {
+      const savedWishlist =
+        window.localStorage.getItem(
+          WISHLIST_STORAGE_KEY,
+        );
+
+      if (!savedWishlist) {
+        setWishlistIds([]);
+        return;
+      }
+
+      try {
+        const parsed =
+          JSON.parse(savedWishlist);
+
+        if (
+          Array.isArray(parsed)
+        ) {
+          setWishlistIds(
+            parsed.filter(
+              (item) =>
+                typeof item ===
+                "number",
+            ),
+          );
+        }
+      } catch {
+        setWishlistIds([]);
+      }
+    }
+
+    syncWishlist();
+
+    window.addEventListener(
+      "storage",
+      syncWishlist,
+    );
+
+    window.addEventListener(
+      "focus",
+      syncWishlist,
+    );
+
+    return () => {
+      window.removeEventListener(
+        "storage",
+        syncWishlist,
+      );
+
+      window.removeEventListener(
+        "focus",
+        syncWishlist,
+      );
+    };
+  }, []);
+
+  useEffect(() => {
+    function syncConversation() {
+      const activeConversationId =
+        window.localStorage.getItem(
+          CUSTOMER_CHAT_ID_KEY,
+        );
+
+      if (!activeConversationId) {
+        setConversation(null);
+        return;
+      }
+
+      const conversations =
+        getStoredConversations();
+
+      const activeConversation =
+        conversations.find(
+          (item) =>
+            item.id ===
+            activeConversationId,
+        ) || null;
+
+      setConversation(activeConversation);
+
+      if (activeConversation) {
+        setChatName(
+          activeConversation.customerName,
+        );
+
+        setChatEmail(
+          activeConversation.customerEmail,
+        );
+
+        const lastSeenValue =
+          window.localStorage.getItem(
+            CUSTOMER_CHAT_LAST_SEEN_KEY,
+          );
+
+        const lastSeenTime =
+          lastSeenValue
+            ? new Date(
+                lastSeenValue,
+              ).getTime()
+            : 0;
+
+        const unreadAdminMessages =
+          activeConversation.messages.filter(
+            (message) =>
+              message.sender === "admin" &&
+              new Date(
+                message.createdAt,
+              ).getTime() >
+                lastSeenTime,
+          ).length;
+
+        setUnreadCount(
+          unreadAdminMessages,
+        );
+      } else {
+        setUnreadCount(0);
+      }
+    }
+
+    syncConversation();
+
+    window.addEventListener(
+      "storage",
+      syncConversation,
+    );
+
+    window.addEventListener(
+      "focus",
+      syncConversation,
+    );
+
+    return () => {
+      window.removeEventListener(
+        "storage",
+        syncConversation,
+      );
+
+      window.removeEventListener(
+        "focus",
+        syncConversation,
+      );
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!chatOpen || !conversation) {
+      return;
+    }
+
+    const latestAdminMessage =
+      [...conversation.messages]
+        .reverse()
+        .find(
+          (message) =>
+            message.sender === "admin",
+        );
+
+    if (!latestAdminMessage) {
+      setUnreadCount(0);
+      return;
+    }
+
+    window.localStorage.setItem(
+      CUSTOMER_CHAT_LAST_SEEN_KEY,
+      latestAdminMessage.createdAt,
+    );
+
+    setUnreadCount(0);
+  }, [chatOpen, conversation]);
+
+  function sendChatMessage(
+    event: FormEvent<HTMLFormElement>,
+  ) {
+    event.preventDefault();
+
+    setChatError("");
+
+    const cleanName =
+      chatName.trim();
+
+    const cleanEmail =
+      chatEmail.trim();
+
+    const cleanMessage =
+      chatMessage.trim();
+
+    if (!cleanName) {
+      setChatError(
+        "Please enter your name.",
+      );
+      return;
+    }
+
+    if (!cleanMessage) {
+      setChatError(
+        "Please enter a message.",
+      );
+      return;
+    }
+
+    const now =
+      new Date().toISOString();
+
+    const newMessage: SupportMessage = {
+      id: `MSG-${Date.now()}-${Math.random()
+        .toString(36)
+        .slice(2, 7)}`,
+      sender: "customer",
+      text: cleanMessage,
+      createdAt: now,
+    };
+
+    const conversations =
+      getStoredConversations();
+
+    let activeConversation =
+      conversation;
+
+    if (!activeConversation) {
+      activeConversation = {
+        id: `CHAT-${Date.now()
+          .toString()
+          .slice(-8)}`,
+        customerName: cleanName,
+        customerEmail: cleanEmail,
+        status: "Open",
+        createdAt: now,
+        updatedAt: now,
+        messages: [newMessage],
+      };
+
+      window.localStorage.setItem(
+        CUSTOMER_CHAT_ID_KEY,
+        activeConversation.id,
+      );
+
+      conversations.unshift(
+        activeConversation,
+      );
+    } else {
+      activeConversation = {
+        ...activeConversation,
+        customerName: cleanName,
+        customerEmail: cleanEmail,
+        status: "Open",
+        updatedAt: now,
+        messages: [
+          ...activeConversation.messages,
+          newMessage,
+        ],
+      };
+
+      const conversationIndex =
+        conversations.findIndex(
+          (item) =>
+            item.id ===
+            activeConversation?.id,
+        );
+
+      if (conversationIndex >= 0) {
+        conversations[
+          conversationIndex
+        ] = activeConversation;
+      } else {
+        conversations.unshift(
+          activeConversation,
+        );
+      }
+    }
+
+    window.localStorage.setItem(
+      SUPPORT_STORAGE_KEY,
+      JSON.stringify(conversations),
+    );
+
+    setConversation(
+      activeConversation,
+    );
+
+    setChatMessage("");
+  }
+
   const featuredProduct =
     products.find(
       (product) =>
@@ -74,6 +573,82 @@ export default function Home() {
       ?.scrollIntoView({
         behavior: "smooth",
       });
+  }
+
+  function chooseCategory(
+    categoryName: string,
+  ) {
+    setSelectedCategory(categoryName);
+
+    document
+      .getElementById(
+        "products",
+      )
+      ?.scrollIntoView({
+        behavior: "smooth",
+      });
+  }
+
+  function clearProductFilters() {
+    setProductSearch("");
+    setSelectedCategory("All");
+    setWishlistOnly(false);
+  }
+
+  function toggleWishlist(
+    productId: number,
+  ) {
+    setWishlistIds((current) => {
+      const updated =
+        current.includes(productId)
+          ? current.filter(
+              (id) => id !== productId,
+            )
+          : [...current, productId];
+
+      window.localStorage.setItem(
+        WISHLIST_STORAGE_KEY,
+        JSON.stringify(updated),
+      );
+
+      return updated;
+    });
+  }
+
+  function openWishlist() {
+    setWishlistOnly(true);
+
+    document
+      .getElementById(
+        "products",
+      )
+      ?.scrollIntoView({
+        behavior: "smooth",
+      });
+  }
+
+  function handleAddToCart(
+    productId: number,
+    productName: string,
+  ) {
+    addToCart(productId);
+
+    setAddedProductId(productId);
+    setCartToast(productName);
+    setCartPulse(true);
+
+    if (cartFeedbackTimer.current) {
+      clearTimeout(
+        cartFeedbackTimer.current,
+      );
+    }
+
+    cartFeedbackTimer.current =
+      setTimeout(() => {
+        setAddedProductId(null);
+        setCartToast("");
+        setCartPulse(false);
+      }, 2600);
   }
 
   return (
@@ -117,6 +692,13 @@ export default function Home() {
               Categories
             </button>
 
+            <Link
+              href="/track-order"
+              className="transition hover:text-blue-600"
+            >
+              Track Order
+            </Link>
+
             <a
               href="#about"
               className="transition hover:text-blue-600"
@@ -127,17 +709,33 @@ export default function Home() {
 
           <div className="flex items-center gap-3">
             <Link
-              href="/login"
+              href="/account"
               className="hidden rounded-full border border-black/10 px-5 py-2.5 text-sm font-medium transition hover:border-blue-600 hover:text-blue-600 sm:block"
             >
-              Sign In
+              {customerSession
+                ? `Hi, ${customerSession.name.split(" ")[0]}`
+                : "Sign In"}
             </Link>
+
+            <button
+              type="button"
+              onClick={openWishlist}
+              className="hidden rounded-full border border-black/10 px-5 py-2.5 text-sm font-medium transition hover:border-rose-500 hover:text-rose-600 sm:block"
+            >
+              Wishlist ({wishlistIds.length})
+            </button>
 
             <Link
               href="/cart"
-              className="rounded-full bg-black px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-zinc-800"
+              className={`rounded-full px-5 py-2.5 text-sm font-semibold text-white transition-all duration-300 ${
+                cartPulse
+                  ? "scale-110 bg-green-600 shadow-lg ring-4 ring-green-100"
+                  : "bg-black hover:bg-zinc-800"
+              }`}
             >
-              Cart ({totalItems})
+              {cartPulse
+                ? `✓ Cart (${totalItems})`
+                : `Cart (${totalItems})`}
             </Link>
           </div>
         </div>
@@ -286,16 +884,24 @@ export default function Home() {
                     0
                   }
                   onClick={() =>
-                    addToCart(
+                    handleAddToCart(
                       featuredProduct.id,
+                      featuredProduct.name,
                     )
                   }
-                  className="rounded-full bg-white px-7 py-3 font-semibold text-black transition hover:bg-blue-600 hover:text-white disabled:cursor-not-allowed disabled:bg-zinc-700 disabled:text-zinc-400"
+                  className={`rounded-full px-7 py-3 font-semibold transition-all duration-300 disabled:cursor-not-allowed disabled:bg-zinc-700 disabled:text-zinc-400 ${
+                    addedProductId ===
+                    featuredProduct.id
+                      ? "scale-105 bg-green-500 text-white shadow-lg"
+                      : "bg-white text-black hover:bg-blue-600 hover:text-white"
+                  }`}
                 >
-                  {featuredProduct.stock >
-                  0
-                    ? "Add to Cart →"
-                    : "Sold Out"}
+                  {featuredProduct.stock <= 0
+                    ? "Sold Out"
+                    : addedProductId ===
+                        featuredProduct.id
+                      ? "✓ Added to Cart"
+                      : "Add to Cart →"}
                 </button>
               </div>
             </div>
@@ -357,8 +963,10 @@ export default function Home() {
                     key={
                       category.name
                     }
-                    onClick={
-                      scrollToProducts
+                    onClick={() =>
+                      chooseCategory(
+                        category.name,
+                      )
                     }
                     className="rounded-3xl border border-black/10 bg-[#f7f7f5] p-7 text-left transition hover:-translate-y-1 hover:border-blue-600"
                   >
@@ -406,77 +1014,227 @@ export default function Home() {
         className="bg-[#f7f7f5]"
       >
         <div className="mx-auto max-w-7xl px-6 py-20">
-          <p className="text-sm font-semibold uppercase tracking-[0.3em] text-blue-600">
-            Featured Products
-          </p>
+          <div className="flex flex-col gap-8">
+            <div className="flex flex-wrap items-end justify-between gap-6">
+              <div>
+                <p className="text-sm font-semibold uppercase tracking-[0.3em] text-blue-600">
+                  Store Products
+                </p>
 
-          <h2 className="mt-3 text-4xl font-black">
-            Built for your setup
-          </h2>
+                <h2 className="mt-3 text-4xl font-black">
+                  Find your next device
+                </h2>
 
-          {featuredProducts.length >
-          0 ? (
-            <div className="mt-12 grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
-              {featuredProducts.map(
-                (
-                  product,
-                  index,
-                ) => (
-                  <article
-                    key={
-                      product.id
+                <p className="mt-3 max-w-2xl leading-7 text-zinc-500">
+                  Search the NOVA catalog or filter
+                  products by category.
+                </p>
+              </div>
+
+              <div className="w-full sm:w-96">
+                <label className="mb-2 block text-xs font-semibold uppercase tracking-widest text-zinc-400">
+                  Search Products
+                </label>
+
+                <div className="relative">
+                  <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400">
+                    🔎
+                  </span>
+
+                  <input
+                    value={productSearch}
+                    onChange={(event) =>
+                      setProductSearch(
+                        event.target.value,
+                      )
                     }
-                    className="overflow-hidden rounded-3xl border border-black/10 bg-white"
+                    placeholder="Search by product or category..."
+                    className="w-full rounded-full border border-black/10 bg-white py-3.5 pl-11 pr-5 text-sm outline-none transition focus:border-blue-600"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3">
+              {[
+                "All",
+                ...categories.map(
+                  (category) =>
+                    category.name,
+                ),
+              ].map((categoryName) => {
+                const active =
+                  selectedCategory ===
+                  categoryName;
+
+                return (
+                  <button
+                    key={categoryName}
+                    type="button"
+                    onClick={() =>
+                      setSelectedCategory(
+                        categoryName,
+                      )
+                    }
+                    className={`rounded-full border px-4 py-2.5 text-sm font-semibold transition ${
+                      active
+                        ? "border-blue-600 bg-blue-600 text-white"
+                        : "border-black/10 bg-white text-zinc-600 hover:border-blue-600 hover:text-blue-600"
+                    }`}
                   >
-                    <div className="relative flex h-72 items-center justify-center bg-zinc-100 text-7xl">
+                    {categoryName}
+                  </button>
+                );
+              })}
+
+              <button
+                type="button"
+                onClick={() =>
+                  setWishlistOnly(
+                    (current) => !current,
+                  )
+                }
+                className={`rounded-full border px-4 py-2.5 text-sm font-semibold transition ${
+                  wishlistOnly
+                    ? "border-rose-500 bg-rose-500 text-white"
+                    : "border-black/10 bg-white text-zinc-600 hover:border-rose-500 hover:text-rose-600"
+                }`}
+              >
+                ❤️ Wishlist ({wishlistIds.length})
+              </button>
+
+              {(selectedCategory !== "All" ||
+                productSearch.trim() ||
+                wishlistOnly) && (
+                <button
+                  type="button"
+                  onClick={clearProductFilters}
+                  className="ml-auto text-sm font-semibold text-zinc-400 transition hover:text-black"
+                >
+                  Clear filters
+                </button>
+              )}
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-white px-5 py-4 text-sm">
+              <p className="text-zinc-500">
+                Showing{" "}
+                <span className="font-semibold text-zinc-950">
+                  {filteredProducts.length}
+                </span>{" "}
+                of{" "}
+                <span className="font-semibold text-zinc-950">
+                  {products.length}
+                </span>{" "}
+                products
+              </p>
+
+              <div className="flex flex-wrap items-center gap-4 text-zinc-400">
+                <p>
+                  Category:{" "}
+                  <span className="font-semibold text-zinc-700">
+                    {selectedCategory}
+                  </span>
+                </p>
+
+                {wishlistOnly && (
+                  <p>
+                    View:{" "}
+                    <span className="font-semibold text-rose-600">
+                      Wishlist only
+                    </span>
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {filteredProducts.length > 0 ? (
+            <div className="mt-10 grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
+              {filteredProducts.map(
+                (product, index) => (
+                  <article
+                    key={product.id}
+                    className="overflow-hidden rounded-3xl border border-black/10 bg-white transition hover:-translate-y-1 hover:shadow-lg"
+                  >
+                    <div className="relative flex h-64 items-center justify-center bg-zinc-100 text-7xl">
                       <span className="absolute left-5 top-5 rounded-full bg-black px-3 py-1.5 text-xs text-white">
-                        {index === 0
-                          ? "Featured"
-                          : product.stock <=
-                              5
+                        {product.stock <= 0
+                          ? "Sold Out"
+                          : product.stock <= 5
                             ? "Low Stock"
-                            : "NOVA"}
+                            : selectedCategory ===
+                                "All" &&
+                              productSearch.trim() ===
+                                "" &&
+                              index === 0
+                              ? "Featured"
+                              : "NOVA"}
                       </span>
 
-                      {
-                        product.icon
-                      }
+                      <button
+                        type="button"
+                        onClick={() =>
+                          toggleWishlist(
+                            product.id,
+                          )
+                        }
+                        aria-label={
+                          wishlistIds.includes(
+                            product.id,
+                          )
+                            ? `Remove ${product.name} from wishlist`
+                            : `Add ${product.name} to wishlist`
+                        }
+                        title={
+                          wishlistIds.includes(
+                            product.id,
+                          )
+                            ? "Remove from wishlist"
+                            : "Add to wishlist"
+                        }
+                        className={`absolute right-5 top-5 flex h-11 w-11 items-center justify-center rounded-full border text-xl shadow-sm transition ${
+                          wishlistIds.includes(
+                            product.id,
+                          )
+                            ? "border-rose-200 bg-rose-500 text-white"
+                            : "border-black/10 bg-white text-zinc-500 hover:border-rose-300 hover:text-rose-600"
+                        }`}
+                      >
+                        {wishlistIds.includes(
+                          product.id,
+                        )
+                          ? "♥"
+                          : "♡"}
+                      </button>
+
+                      {product.icon}
                     </div>
 
                     <div className="p-6">
                       <p className="text-xs uppercase tracking-widest text-zinc-400">
-                        {
-                          product.category
-                        }
+                        {product.category}
                       </p>
 
                       <h3 className="mt-3 min-h-14 text-xl font-bold">
-                        {
-                          product.name
-                        }
+                        {product.name}
                       </h3>
 
                       <div className="mt-5 flex items-center justify-between gap-3">
                         <p className="text-lg font-bold">
-                          {
-                            product.price
-                          }{" "}
-                          SAR
+                          {product.price} SAR
                         </p>
 
                         <p
                           className={`text-xs font-medium ${
-                            product.stock >
-                            0
-                              ? product.stock <=
-                                5
+                            product.stock > 0
+                              ? product.stock <= 5
                                 ? "text-amber-600"
                                 : "text-green-600"
                               : "text-red-600"
                           }`}
                         >
-                          {product.stock >
-                          0
+                          {product.stock > 0
                             ? `${product.stock} left`
                             : "Sold out"}
                         </p>
@@ -484,20 +1242,27 @@ export default function Home() {
 
                       <button
                         disabled={
-                          product.stock <=
-                          0
+                          product.stock <= 0
                         }
                         onClick={() =>
-                          addToCart(
+                          handleAddToCart(
                             product.id,
+                            product.name,
                           )
                         }
-                        className="mt-6 w-full rounded-full bg-black py-3.5 font-semibold text-white transition hover:bg-blue-600 disabled:cursor-not-allowed disabled:bg-zinc-200 disabled:text-zinc-500"
+                        className={`mt-6 w-full rounded-full py-3.5 font-semibold text-white transition-all duration-300 disabled:cursor-not-allowed disabled:bg-zinc-200 disabled:text-zinc-500 ${
+                          addedProductId ===
+                          product.id
+                            ? "scale-[1.03] bg-green-600 shadow-lg"
+                            : "bg-black hover:bg-blue-600"
+                        }`}
                       >
-                        {product.stock >
-                        0
-                          ? "Add to Cart"
-                          : "Out of Stock"}
+                        {product.stock <= 0
+                          ? "Out of Stock"
+                          : addedProductId ===
+                              product.id
+                            ? "✓ Added to Cart"
+                            : "Add to Cart"}
                       </button>
                     </div>
                   </article>
@@ -505,91 +1270,32 @@ export default function Home() {
               )}
             </div>
           ) : (
-            <div className="mt-12 rounded-3xl border border-black/10 bg-white px-6 py-20 text-center">
+            <div className="mt-10 rounded-[2rem] border border-dashed border-black/10 bg-white px-6 py-20 text-center">
               <div className="text-6xl">
-                📦
+                🔎
               </div>
 
               <h3 className="mt-5 text-2xl font-bold">
-                No products available
+                {wishlistOnly
+                  ? "Your wishlist is empty"
+                  : "No matching products"}
               </h3>
 
-              <p className="mt-2 text-zinc-500">
-                Add products from
-                the NOVA administration
-                dashboard.
+              <p className="mx-auto mt-3 max-w-lg leading-7 text-zinc-500">
+                {wishlistOnly
+                  ? "Tap the heart on any product to save it here for later."
+                  : "Try another product name or category, or clear the current filters."}
               </p>
-            </div>
-          )}
 
-          {products.length > 4 && (
-            <div className="mt-8 grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
-              {products
-                .slice(4)
-                .map(
-                  (product) => (
-                    <article
-                      key={
-                        product.id
-                      }
-                      className="overflow-hidden rounded-3xl border border-black/10 bg-white"
-                    >
-                      <div className="flex h-60 items-center justify-center bg-zinc-100 text-7xl">
-                        {
-                          product.icon
-                        }
-                      </div>
-
-                      <div className="p-6">
-                        <p className="text-xs uppercase tracking-widest text-zinc-400">
-                          {
-                            product.category
-                          }
-                        </p>
-
-                        <h3 className="mt-3 min-h-14 text-xl font-bold">
-                          {
-                            product.name
-                          }
-                        </h3>
-
-                        <div className="mt-5 flex items-center justify-between gap-3">
-                          <p className="font-bold">
-                            {
-                              product.price
-                            }{" "}
-                            SAR
-                          </p>
-
-                          <p className="text-xs text-zinc-500">
-                            {
-                              product.stock
-                            }{" "}
-                            in stock
-                          </p>
-                        </div>
-
-                        <button
-                          disabled={
-                            product.stock <=
-                            0
-                          }
-                          onClick={() =>
-                            addToCart(
-                              product.id,
-                            )
-                          }
-                          className="mt-6 w-full rounded-full bg-black py-3.5 font-semibold text-white transition hover:bg-blue-600 disabled:cursor-not-allowed disabled:bg-zinc-200 disabled:text-zinc-500"
-                        >
-                          {product.stock >
-                          0
-                            ? "Add to Cart"
-                            : "Out of Stock"}
-                        </button>
-                      </div>
-                    </article>
-                  ),
-                )}
+              <button
+                type="button"
+                onClick={clearProductFilters}
+                className="mt-7 rounded-full bg-blue-600 px-7 py-3.5 font-semibold text-white transition hover:bg-blue-700"
+              >
+                {wishlistOnly
+                  ? "Browse Products"
+                  : "Show All Products"}
+              </button>
             </div>
           )}
         </div>
@@ -638,6 +1344,18 @@ export default function Home() {
                 description:
                   "Customer orders flow directly into the administration workflow.",
               },
+              {
+                title:
+                  "Customer Support",
+                description:
+                  "Built-in support chat connects customer conversations with the administration workflow.",
+              },
+              {
+                title:
+                  "Wishlist",
+                description:
+                  "Customers can save favorite products and return to them later in the same browser.",
+              },
             ].map(
               (feature) => (
                 <div
@@ -679,6 +1397,249 @@ export default function Home() {
           </div>
         </footer>
       </section>
+
+      {/* CART FEEDBACK */}
+      {cartToast && (
+        <div className="pointer-events-none fixed left-1/2 top-7 z-[100] w-[calc(100vw-2rem)] max-w-md -translate-x-1/2">
+          <div className="animate-bounce rounded-[1.5rem] border border-green-200 bg-white p-4 shadow-2xl ring-4 ring-green-100">
+            <div className="flex items-center gap-4">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-green-600 text-2xl font-black text-white">
+                ✓
+              </div>
+
+              <div className="min-w-0 flex-1">
+                <p className="text-base font-black text-zinc-950">
+                  Added to Cart!
+                </p>
+
+                <p className="mt-1 truncate text-sm text-zinc-500">
+                  {cartToast}
+                </p>
+              </div>
+
+              <div className="rounded-full bg-green-50 px-3 py-2 text-sm font-bold text-green-700">
+                +1 🛒
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CUSTOMER SUPPORT CHAT */}
+      <div className="fixed bottom-6 right-6 z-50">
+        {chatOpen && (
+          <div className="mb-4 flex h-[620px] max-h-[72vh] w-[calc(100vw-3rem)] max-w-sm flex-col overflow-hidden rounded-[2rem] border border-black/10 bg-white shadow-2xl">
+            <div className="flex items-center justify-between bg-zinc-950 px-5 py-4 text-white">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.25em] text-blue-400">
+                  NOVA Support
+                </p>
+
+                <h3 className="mt-1 text-lg font-bold">
+                  Customer Chat
+                </h3>
+              </div>
+
+              <button
+                type="button"
+                onClick={() =>
+                  setChatOpen(false)
+                }
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-lg transition hover:bg-white/20"
+                aria-label="Close support chat"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="border-b border-black/10 bg-blue-50 px-5 py-3">
+              <p className="text-xs leading-5 text-zinc-600">
+                Portfolio support simulation.
+                Messages are connected to the
+                NOVA administration workflow.
+              </p>
+            </div>
+
+            <div className="flex-1 space-y-3 overflow-y-auto bg-[#f7f7f5] p-5">
+              {!conversation ||
+              conversation.messages.length ===
+                0 ? (
+                <div className="rounded-2xl border border-black/10 bg-white p-5">
+                  <p className="font-semibold">
+                    👋 Hi! How can we help?
+                  </p>
+
+                  <p className="mt-2 text-sm leading-6 text-zinc-500">
+                    Send a message and the
+                    support conversation will
+                    appear in the NOVA admin
+                    support inbox.
+                  </p>
+                </div>
+              ) : (
+                conversation.messages.map(
+                  (message) => (
+                    <div
+                      key={message.id}
+                      className={`flex ${
+                        message.sender ===
+                        "customer"
+                          ? "justify-end"
+                          : "justify-start"
+                      }`}
+                    >
+                      <div
+                        className={`max-w-[85%] rounded-2xl px-4 py-3 ${
+                          message.sender ===
+                          "customer"
+                            ? "bg-blue-600 text-white"
+                            : "border border-black/10 bg-white text-zinc-950"
+                        }`}
+                      >
+                        <p className="text-sm leading-6">
+                          {message.text}
+                        </p>
+
+                        <p
+                          className={`mt-2 text-[10px] ${
+                            message.sender ===
+                            "customer"
+                              ? "text-blue-100"
+                              : "text-zinc-400"
+                          }`}
+                        >
+                          {message.sender ===
+                          "customer"
+                            ? "You"
+                            : "NOVA Support"}{" "}
+                          •{" "}
+                          {new Date(
+                            message.createdAt,
+                          ).toLocaleTimeString(
+                            [],
+                            {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            },
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                  ),
+                )
+              )}
+            </div>
+
+            <form
+              onSubmit={sendChatMessage}
+              className="border-t border-black/10 bg-white p-4"
+            >
+              {!conversation && (
+                <div className="mb-3 grid gap-3 sm:grid-cols-2">
+                  <input
+                    value={chatName}
+                    onChange={(event) =>
+                      setChatName(
+                        event.target.value,
+                      )
+                    }
+                    placeholder="Your name"
+                    className="w-full rounded-xl border border-black/10 bg-[#f7f7f5] px-3 py-2.5 text-sm outline-none focus:border-blue-600"
+                  />
+
+                  <input
+                    type="email"
+                    value={chatEmail}
+                    onChange={(event) =>
+                      setChatEmail(
+                        event.target.value,
+                      )
+                    }
+                    placeholder="Email (optional)"
+                    className="w-full rounded-xl border border-black/10 bg-[#f7f7f5] px-3 py-2.5 text-sm outline-none focus:border-blue-600"
+                  />
+                </div>
+              )}
+
+              {conversation && (
+                <div className="mb-3 flex items-center justify-between rounded-xl bg-zinc-100 px-3 py-2 text-xs">
+                  <span className="font-medium text-zinc-600">
+                    {conversation.customerName}
+                  </span>
+
+                  <span
+                    className={`font-semibold ${
+                      conversation.status ===
+                      "Open"
+                        ? "text-green-600"
+                        : "text-zinc-400"
+                    }`}
+                  >
+                    {conversation.status}
+                  </span>
+                </div>
+              )}
+
+              <div className="flex gap-2">
+                <textarea
+                  value={chatMessage}
+                  onChange={(event) =>
+                    setChatMessage(
+                      event.target.value,
+                    )
+                  }
+                  rows={2}
+                  placeholder="Type your message..."
+                  className="min-h-12 flex-1 resize-none rounded-2xl border border-black/10 bg-[#f7f7f5] px-4 py-3 text-sm outline-none focus:border-blue-600"
+                />
+
+                <button
+                  type="submit"
+                  className="self-end rounded-2xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-700"
+                >
+                  Send
+                </button>
+              </div>
+
+              {chatError && (
+                <p className="mt-2 text-xs font-medium text-red-600">
+                  {chatError}
+                </p>
+              )}
+            </form>
+          </div>
+        )}
+
+        <button
+          type="button"
+          onClick={() =>
+            setChatOpen(
+              (current) => !current,
+            )
+          }
+          className="relative ml-auto flex items-center gap-3 rounded-full bg-blue-600 px-5 py-4 font-semibold text-white shadow-xl transition hover:bg-blue-700"
+        >
+          {unreadCount > 0 &&
+            !chatOpen && (
+              <span className="absolute -right-1 -top-2 flex min-h-6 min-w-6 items-center justify-center rounded-full bg-red-600 px-1.5 text-xs font-bold text-white ring-4 ring-[#f7f7f5]">
+                {unreadCount > 9
+                  ? "9+"
+                  : unreadCount}
+              </span>
+            )}
+
+          <span className="text-xl">
+            💬
+          </span>
+
+          <span>
+            {chatOpen
+              ? "Close Chat"
+              : "Live Support"}
+          </span>
+        </button>
+      </div>
     </main>
   );
 }
+

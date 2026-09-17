@@ -1,9 +1,68 @@
 "use client";
 
+import {
+  FormEvent,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import Link from "next/link";
 
 import { useCart } from "@/components/CartProvider";
 import { useStoreProducts } from "@/hooks/useStoreProducts";
+
+type PromoCode =
+  | "NOVA10"
+  | "WELCOME15"
+  | "SAVE50";
+
+type AppliedPromo = {
+  code: PromoCode;
+  label: string;
+  type: "percentage" | "fixed";
+  value: number;
+};
+
+const PROMO_STORAGE_KEY =
+  "nova-applied-promo";
+
+const promoCodes: Record<
+  PromoCode,
+  AppliedPromo
+> = {
+  NOVA10: {
+    code: "NOVA10",
+    label: "10% off your order",
+    type: "percentage",
+    value: 10,
+  },
+
+  WELCOME15: {
+    code: "WELCOME15",
+    label: "15% welcome discount",
+    type: "percentage",
+    value: 15,
+  },
+
+  SAVE50: {
+    code: "SAVE50",
+    label: "50 SAR off your order",
+    type: "fixed",
+    value: 50,
+  },
+};
+
+function roundMoney(value: number) {
+  return Math.round(value * 100) / 100;
+}
+
+function formatMoney(value: number) {
+  return value.toLocaleString("en-SA", {
+    minimumFractionDigits:
+      Number.isInteger(value) ? 0 : 2,
+    maximumFractionDigits: 2,
+  });
+}
 
 export default function CartPage() {
   const products = useStoreProducts();
@@ -16,33 +75,183 @@ export default function CartPage() {
     clearCart,
   } = useCart();
 
-  const cartProducts = cart
-    .map((item) => {
-      const product = products.find(
-        (product) =>
-          product.id === item.productId,
+  const [promoInput, setPromoInput] =
+    useState("");
+
+  const [appliedPromo, setAppliedPromo] =
+    useState<AppliedPromo | null>(null);
+
+  const [promoMessage, setPromoMessage] =
+    useState("");
+
+  const [promoError, setPromoError] =
+    useState("");
+
+  useEffect(() => {
+    const savedPromo =
+      window.localStorage.getItem(
+        PROMO_STORAGE_KEY,
       );
 
-      if (!product) return null;
+    if (!savedPromo) {
+      return;
+    }
 
-      return {
-        ...product,
-        quantity: item.quantity,
-      };
-    })
-    .filter(
-      (
-        item,
-      ): item is NonNullable<typeof item> =>
-        item !== null,
+    try {
+      const parsed =
+        JSON.parse(savedPromo) as AppliedPromo;
+
+      if (
+        parsed &&
+        typeof parsed.code === "string" &&
+        parsed.code in promoCodes
+      ) {
+        const promo =
+          promoCodes[
+            parsed.code as PromoCode
+          ];
+
+        setAppliedPromo(promo);
+        setPromoInput(promo.code);
+      } else {
+        window.localStorage.removeItem(
+          PROMO_STORAGE_KEY,
+        );
+      }
+    } catch {
+      window.localStorage.removeItem(
+        PROMO_STORAGE_KEY,
+      );
+    }
+  }, []);
+
+  const cartProducts = useMemo(
+    () =>
+      cart
+        .map((item) => {
+          const product = products.find(
+            (product) =>
+              product.id === item.productId,
+          );
+
+          if (!product) return null;
+
+          return {
+            ...product,
+            quantity: item.quantity,
+          };
+        })
+        .filter(
+          (
+            item,
+          ): item is NonNullable<typeof item> =>
+            item !== null,
+        ),
+    [cart, products],
+  );
+
+  const subtotal = useMemo(
+    () =>
+      cartProducts.reduce(
+        (total, product) =>
+          total +
+          product.price *
+            product.quantity,
+        0,
+      ),
+    [cartProducts],
+  );
+
+  const discountAmount = useMemo(() => {
+    if (!appliedPromo) {
+      return 0;
+    }
+
+    if (
+      appliedPromo.type ===
+      "percentage"
+    ) {
+      return Math.min(
+        subtotal,
+        roundMoney(
+          (subtotal *
+            appliedPromo.value) /
+            100,
+        ),
+      );
+    }
+
+    return Math.min(
+      subtotal,
+      appliedPromo.value,
+    );
+  }, [appliedPromo, subtotal]);
+
+  const finalTotal = roundMoney(
+    Math.max(
+      0,
+      subtotal - discountAmount,
+    ),
+  );
+
+  function handleApplyPromo(
+    event: FormEvent<HTMLFormElement>,
+  ) {
+    event.preventDefault();
+
+    setPromoError("");
+    setPromoMessage("");
+
+    const normalizedCode =
+      promoInput
+        .trim()
+        .toUpperCase() as PromoCode;
+
+    if (!normalizedCode) {
+      setPromoError(
+        "Enter a promo code first.",
+      );
+      return;
+    }
+
+    const promo =
+      promoCodes[normalizedCode];
+
+    if (!promo) {
+      setPromoError(
+        "This promo code is not valid for the NOVA demo store.",
+      );
+      return;
+    }
+
+    setAppliedPromo(promo);
+    setPromoInput(promo.code);
+
+    window.localStorage.setItem(
+      PROMO_STORAGE_KEY,
+      JSON.stringify(promo),
     );
 
-  const subtotal = cartProducts.reduce(
-    (total, product) =>
-      total +
-      product.price * product.quantity,
-    0,
-  );
+    setPromoMessage(
+      `${promo.code} applied successfully — ${promo.label}.`,
+    );
+  }
+
+  function removePromo() {
+    setAppliedPromo(null);
+    setPromoInput("");
+    setPromoMessage("");
+    setPromoError("");
+
+    window.localStorage.removeItem(
+      PROMO_STORAGE_KEY,
+    );
+  }
+
+  function handleClearCart() {
+    clearCart();
+    removePromo();
+  }
 
   return (
     <main className="min-h-screen bg-[#f7f7f5] text-zinc-950">
@@ -90,7 +299,7 @@ export default function CartPage() {
 
           {cartProducts.length > 0 && (
             <button
-              onClick={clearCart}
+              onClick={handleClearCart}
               className="text-sm font-medium text-red-600 transition hover:text-red-700"
             >
               Clear Cart
@@ -121,7 +330,7 @@ export default function CartPage() {
             </Link>
           </div>
         ) : (
-          <div className="grid gap-8 lg:grid-cols-[1fr_380px]">
+          <div className="grid gap-8 lg:grid-cols-[1fr_400px]">
             {/* ITEMS */}
             <div className="space-y-4">
               {cartProducts.map(
@@ -148,7 +357,7 @@ export default function CartPage() {
                           </h2>
 
                           <p className="mt-2 font-semibold">
-                            {product.price} SAR
+                            {formatMoney(product.price)} SAR
                           </p>
 
                           <p
@@ -221,8 +430,10 @@ export default function CartPage() {
                         </div>
 
                         <p className="text-lg font-bold">
-                          {product.price *
-                            product.quantity}{" "}
+                          {formatMoney(
+                            product.price *
+                              product.quantity,
+                          )}{" "}
                           SAR
                         </p>
                       </div>
@@ -242,7 +453,123 @@ export default function CartPage() {
                 Summary
               </h2>
 
-              <div className="mt-8 space-y-4 border-b border-white/10 pb-6 text-sm">
+              {/* PROMO CODE */}
+              <div className="mt-7 rounded-2xl border border-white/10 bg-white/5 p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold">
+                      Promo Code
+                    </p>
+
+                    <p className="mt-1 text-xs text-zinc-500">
+                      Apply a demo discount
+                    </p>
+                  </div>
+
+                  <span className="text-xl">
+                    🏷️
+                  </span>
+                </div>
+
+                {appliedPromo ? (
+                  <div className="mt-4 rounded-xl border border-green-500/20 bg-green-500/10 p-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <p className="font-bold text-green-400">
+                          {
+                            appliedPromo.code
+                          }
+                        </p>
+
+                        <p className="mt-1 text-xs leading-5 text-green-200">
+                          {
+                            appliedPromo.label
+                          }
+                        </p>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={removePromo}
+                        className="text-xs font-semibold text-red-300 transition hover:text-red-200"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <form
+                    onSubmit={
+                      handleApplyPromo
+                    }
+                    className="mt-4"
+                  >
+                    <div className="flex gap-2">
+                      <input
+                        value={promoInput}
+                        onChange={(event) =>
+                          setPromoInput(
+                            event.target.value,
+                          )
+                        }
+                        placeholder="Enter code"
+                        autoCapitalize="characters"
+                        className="min-w-0 flex-1 rounded-xl border border-white/10 bg-white/10 px-4 py-3 text-sm uppercase text-white outline-none placeholder:normal-case placeholder:text-zinc-500 focus:border-blue-500"
+                      />
+
+                      <button
+                        type="submit"
+                        className="rounded-xl bg-white px-4 py-3 text-sm font-semibold text-black transition hover:bg-blue-500 hover:text-white"
+                      >
+                        Apply
+                      </button>
+                    </div>
+                  </form>
+                )}
+
+                {promoMessage && (
+                  <p className="mt-3 text-xs leading-5 text-green-400">
+                    ✓ {promoMessage}
+                  </p>
+                )}
+
+                {promoError && (
+                  <p className="mt-3 text-xs leading-5 text-red-400">
+                    ⚠️ {promoError}
+                  </p>
+                )}
+
+                <div className="mt-4 border-t border-white/10 pt-4">
+                  <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-500">
+                    Demo Codes
+                  </p>
+
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {[
+                      "NOVA10",
+                      "WELCOME15",
+                      "SAVE50",
+                    ].map((code) => (
+                      <button
+                        key={code}
+                        type="button"
+                        onClick={() => {
+                          setPromoInput(
+                            code,
+                          );
+                          setPromoError("");
+                          setPromoMessage("");
+                        }}
+                        className="rounded-full border border-white/10 px-3 py-1.5 text-xs text-zinc-300 transition hover:border-blue-500 hover:text-blue-400"
+                      >
+                        {code}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-7 space-y-4 border-b border-white/10 pb-6 text-sm">
                 <div className="flex justify-between text-zinc-400">
                   <span>Items</span>
 
@@ -255,9 +582,22 @@ export default function CartPage() {
                   <span>Subtotal</span>
 
                   <span className="text-white">
-                    {subtotal} SAR
+                    {formatMoney(subtotal)} SAR
                   </span>
                 </div>
+
+                {appliedPromo && (
+                  <div className="flex justify-between gap-4 text-green-400">
+                    <span>
+                      Discount (
+                      {appliedPromo.code})
+                    </span>
+
+                    <span>
+                      −{formatMoney(discountAmount)} SAR
+                    </span>
+                  </div>
+                )}
 
                 <div className="flex justify-between text-zinc-400">
                   <span>Shipping</span>
@@ -268,11 +608,22 @@ export default function CartPage() {
                 </div>
               </div>
 
-              <div className="flex justify-between py-6 text-xl font-bold">
-                <span>Total</span>
+              <div className="flex items-center justify-between py-6">
+                <div>
+                  <p className="text-sm text-zinc-500">
+                    Final Total
+                  </p>
 
-                <span>
-                  {subtotal} SAR
+                  {appliedPromo && (
+                    <p className="mt-1 text-xs text-green-400">
+                      You save{" "}
+                      {formatMoney(discountAmount)} SAR
+                    </p>
+                  )}
+                </div>
+
+                <span className="text-2xl font-black">
+                  {formatMoney(finalTotal)} SAR
                 </span>
               </div>
 
@@ -283,8 +634,10 @@ export default function CartPage() {
                 Proceed to Checkout →
               </Link>
 
-              <p className="mt-4 text-center text-xs text-zinc-500">
-                Secure checkout simulation
+              <p className="mt-4 text-center text-xs leading-5 text-zinc-500">
+                Portfolio discount simulation.
+                The applied promo is carried
+                into checkout.
               </p>
             </aside>
           </div>
@@ -293,3 +646,4 @@ export default function CartPage() {
     </main>
   );
 }
+

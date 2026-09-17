@@ -9,11 +9,21 @@ type OrderStatus =
   | "Shipped"
   | "Delivered";
 
+type PaymentStatus =
+  | "Paid (Demo)"
+  | "Pending";
+
 type OrderItem = {
   productId: number;
   name: string;
   price: number;
   quantity: number;
+};
+
+type DeliveryLocation = {
+  latitude: number;
+  longitude: number;
+  accuracy?: number;
 };
 
 type ShippingAddress = {
@@ -22,6 +32,7 @@ type ShippingAddress = {
   region: string;
   postalCode: string;
   country: string;
+  location?: DeliveryLocation;
 };
 
 type Order = {
@@ -32,6 +43,7 @@ type Order = {
   total: number;
   status: OrderStatus;
   paymentMethod?: string;
+  paymentStatus?: PaymentStatus;
   createdAt?: string;
   shippingAddress?: ShippingAddress;
   items?: OrderItem[];
@@ -140,6 +152,20 @@ export default function OrderDetailsPage() {
     return "border-amber-200 bg-amber-50 text-amber-700";
   }
 
+  function getPaymentStatusClasses(
+    status?: PaymentStatus,
+  ) {
+    if (status === "Paid (Demo)") {
+      return "border-green-200 bg-green-50 text-green-700";
+    }
+
+    if (status === "Pending") {
+      return "border-amber-200 bg-amber-50 text-amber-700";
+    }
+
+    return "border-zinc-200 bg-zinc-50 text-zinc-500";
+  }
+
   if (loading) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#f4f4f2] text-zinc-950">
@@ -184,6 +210,17 @@ export default function OrderDetailsPage() {
           order.createdAt,
         ).toLocaleString()
       : "Demo Order";
+
+  const deliveryLocation =
+    order.shippingAddress?.location;
+
+  const hasDeliveryLocation =
+    typeof deliveryLocation?.latitude === "number" &&
+    typeof deliveryLocation?.longitude === "number";
+
+  const mapsUrl = hasDeliveryLocation
+    ? `https://www.google.com/maps?q=${deliveryLocation.latitude},${deliveryLocation.longitude}`
+    : "";
 
   return (
     <main className="min-h-screen bg-[#f4f4f2] text-zinc-950">
@@ -319,6 +356,21 @@ export default function OrderDetailsPage() {
                       "Demo Order"}
                   </p>
                 </div>
+
+                <div>
+                  <p className="text-xs uppercase tracking-widest text-zinc-400">
+                    Payment Status
+                  </p>
+
+                  <span
+                    className={`mt-2 inline-flex rounded-full border px-3 py-1 text-sm font-semibold ${getPaymentStatusClasses(
+                      order.paymentStatus,
+                    )}`}
+                  >
+                    {order.paymentStatus ||
+                      "Not available"}
+                  </span>
+                </div>
               </div>
             </section>
 
@@ -402,6 +454,68 @@ export default function OrderDetailsPage() {
                           .country
                       }
                     </p>
+                  </div>
+
+                  <div className="sm:col-span-2 rounded-2xl border border-blue-100 bg-blue-50 p-5">
+                    <div className="flex flex-wrap items-center justify-between gap-4">
+                      <div>
+                        <p className="text-xs uppercase tracking-widest text-zinc-400">
+                          Delivery Pin
+                        </p>
+
+                        <p
+                          className={`mt-2 font-semibold ${
+                            hasDeliveryLocation
+                              ? "text-green-700"
+                              : "text-zinc-500"
+                          }`}
+                        >
+                          {hasDeliveryLocation
+                            ? "Location attached ✓"
+                            : "No location attached"}
+                        </p>
+                      </div>
+
+                      {hasDeliveryLocation && (
+                        <a
+                          href={mapsUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="rounded-full bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-700"
+                        >
+                          📍 Open in Maps →
+                        </a>
+                      )}
+                    </div>
+
+                    {hasDeliveryLocation && (
+                      <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-sm text-zinc-600">
+                        <span>
+                          Latitude:{" "}
+                          {deliveryLocation.latitude.toFixed(
+                            5,
+                          )}
+                        </span>
+
+                        <span>
+                          Longitude:{" "}
+                          {deliveryLocation.longitude.toFixed(
+                            5,
+                          )}
+                        </span>
+
+                        {typeof deliveryLocation.accuracy ===
+                          "number" && (
+                          <span>
+                            Accuracy: ±
+                            {Math.round(
+                              deliveryLocation.accuracy,
+                            )}
+                            m
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               ) : (
@@ -502,7 +616,55 @@ export default function OrderDetailsPage() {
                     "Demo"}
                 </span>
               </div>
+
+              <div className="flex justify-between gap-5 text-sm">
+                <span className="text-zinc-400">
+                  Payment Status
+                </span>
+
+                <span
+                  className={
+                    order.paymentStatus === "Paid (Demo)"
+                      ? "font-semibold text-green-400"
+                      : order.paymentStatus === "Pending"
+                        ? "font-semibold text-amber-400"
+                        : "text-zinc-500"
+                  }
+                >
+                  {order.paymentStatus ||
+                    "Not available"}
+                </span>
+              </div>
+
+              <div className="flex justify-between gap-5 text-sm">
+                <span className="text-zinc-400">
+                  Delivery Pin
+                </span>
+
+                <span
+                  className={
+                    hasDeliveryLocation
+                      ? "font-semibold text-green-400"
+                      : "text-zinc-500"
+                  }
+                >
+                  {hasDeliveryLocation
+                    ? "Attached"
+                    : "Not attached"}
+                </span>
+              </div>
             </div>
+
+            {hasDeliveryLocation && (
+              <a
+                href={mapsUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-6 block rounded-full border border-white/15 bg-white/5 py-3 text-center text-sm font-semibold transition hover:border-blue-400 hover:text-blue-400"
+              >
+                📍 Open Delivery Location →
+              </a>
+            )}
 
             <div className="flex items-center justify-between py-7">
               <span className="text-lg font-bold">
@@ -526,3 +688,4 @@ export default function OrderDetailsPage() {
     </main>
   );
 }
+

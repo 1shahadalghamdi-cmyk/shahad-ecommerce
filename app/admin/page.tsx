@@ -24,12 +24,41 @@ type OrderStatus =
   | "Shipped"
   | "Delivered";
 
+type OrderFilter =
+  | "All"
+  | OrderStatus;
+
 type Order = {
   id: string;
   customer: string;
   total: number;
   status: OrderStatus;
 };
+
+type SupportMessage = {
+  id: string;
+  sender: "customer" | "admin";
+  text: string;
+  createdAt: string;
+};
+
+type SupportConversation = {
+  id: string;
+  customerName: string;
+  customerEmail: string;
+  status: "Open" | "Closed";
+  createdAt: string;
+  updatedAt: string;
+  messages: SupportMessage[];
+};
+
+type SupportFilter =
+  | "All"
+  | "Open"
+  | "Closed";
+
+const SUPPORT_STORAGE_KEY =
+  "nova-support-conversations";
 
 const initialProducts: AdminProduct[] = [
   {
@@ -102,6 +131,27 @@ export default function AdminPage() {
 
   const [search, setSearch] = useState("");
 
+  const [orderSearch, setOrderSearch] =
+    useState("");
+
+  const [orderFilter, setOrderFilter] =
+    useState<OrderFilter>("All");
+
+  const [supportConversations, setSupportConversations] =
+    useState<SupportConversation[]>([]);
+
+  const [selectedConversationId, setSelectedConversationId] =
+    useState("");
+
+  const [supportSearch, setSupportSearch] =
+    useState("");
+
+  const [supportFilter, setSupportFilter] =
+    useState<SupportFilter>("All");
+
+  const [supportReply, setSupportReply] =
+    useState("");
+
   const [showForm, setShowForm] =
     useState(false);
 
@@ -171,6 +221,82 @@ export default function AdminPage() {
     );
   }, [orders, ordersLoaded]);
 
+  useEffect(() => {
+    function syncSupportConversations() {
+      const savedConversations =
+        window.localStorage.getItem(
+          SUPPORT_STORAGE_KEY,
+        );
+
+      if (!savedConversations) {
+        setSupportConversations([]);
+        setSelectedConversationId("");
+        return;
+      }
+
+      try {
+        const parsed =
+          JSON.parse(savedConversations);
+
+        const conversations:
+          SupportConversation[] =
+          Array.isArray(parsed)
+            ? parsed
+            : [];
+
+        setSupportConversations(
+          conversations,
+        );
+
+        setSelectedConversationId(
+          (current) => {
+            if (
+              current &&
+              conversations.some(
+                (conversation) =>
+                  conversation.id ===
+                  current,
+              )
+            ) {
+              return current;
+            }
+
+            return (
+              conversations[0]?.id ||
+              ""
+            );
+          },
+        );
+      } catch {
+        setSupportConversations([]);
+      }
+    }
+
+    syncSupportConversations();
+
+    window.addEventListener(
+      "storage",
+      syncSupportConversations,
+    );
+
+    window.addEventListener(
+      "focus",
+      syncSupportConversations,
+    );
+
+    return () => {
+      window.removeEventListener(
+        "storage",
+        syncSupportConversations,
+      );
+
+      window.removeEventListener(
+        "focus",
+        syncSupportConversations,
+      );
+    };
+  }, []);
+
   const inventoryValue = useMemo(
     () =>
       products.reduce(
@@ -208,6 +334,140 @@ export default function AdminPage() {
             search.toLowerCase(),
           ),
     );
+
+  const filteredOrders = useMemo(() => {
+    const normalizedSearch =
+      orderSearch.trim().toLowerCase();
+
+    return orders.filter((order) => {
+      const matchesStatus =
+        orderFilter === "All" ||
+        order.status === orderFilter;
+
+      const matchesSearch =
+        normalizedSearch.length === 0 ||
+        order.id
+          .toLowerCase()
+          .includes(normalizedSearch) ||
+        order.customer
+          .toLowerCase()
+          .includes(normalizedSearch);
+
+      return matchesStatus && matchesSearch;
+    });
+  }, [orders, orderFilter, orderSearch]);
+
+  const orderCounts = useMemo(
+    () => ({
+      All: orders.length,
+      Processing: orders.filter(
+        (order) =>
+          order.status === "Processing",
+      ).length,
+      Shipped: orders.filter(
+        (order) =>
+          order.status === "Shipped",
+      ).length,
+      Delivered: orders.filter(
+        (order) =>
+          order.status === "Delivered",
+      ).length,
+    }),
+    [orders],
+  );
+
+  const filteredSupportConversations =
+    useMemo(() => {
+      const normalizedSearch =
+        supportSearch
+          .trim()
+          .toLowerCase();
+
+      return supportConversations
+        .filter((conversation) => {
+          const matchesFilter =
+            supportFilter === "All" ||
+            conversation.status ===
+              supportFilter;
+
+          const matchesSearch =
+            normalizedSearch.length ===
+              0 ||
+            conversation.customerName
+              .toLowerCase()
+              .includes(
+                normalizedSearch,
+              ) ||
+            conversation.customerEmail
+              .toLowerCase()
+              .includes(
+                normalizedSearch,
+              ) ||
+            conversation.id
+              .toLowerCase()
+              .includes(
+                normalizedSearch,
+              ) ||
+            conversation.messages.some(
+              (message) =>
+                message.text
+                  .toLowerCase()
+                  .includes(
+                    normalizedSearch,
+                  ),
+            );
+
+          return (
+            matchesFilter &&
+            matchesSearch
+          );
+        })
+        .sort(
+          (a, b) =>
+            new Date(
+              b.updatedAt,
+            ).getTime() -
+            new Date(
+              a.updatedAt,
+            ).getTime(),
+        );
+    }, [
+      supportConversations,
+      supportFilter,
+      supportSearch,
+    ]);
+
+  const selectedConversation =
+    useMemo(
+      () =>
+        supportConversations.find(
+          (conversation) =>
+            conversation.id ===
+            selectedConversationId,
+        ) || null,
+      [
+        supportConversations,
+        selectedConversationId,
+      ],
+    );
+
+  const supportCounts = useMemo(
+    () => ({
+      All: supportConversations.length,
+      Open: supportConversations.filter(
+        (conversation) =>
+          conversation.status ===
+          "Open",
+      ).length,
+      Closed:
+        supportConversations.filter(
+          (conversation) =>
+            conversation.status ===
+            "Closed",
+        ).length,
+    }),
+    [supportConversations],
+  );
 
   function resetForm() {
     setName("");
@@ -330,6 +590,113 @@ export default function AdminPage() {
             }
           : order,
       ),
+    );
+  }
+
+  function saveSupportConversations(
+    conversations:
+      SupportConversation[],
+  ) {
+    setSupportConversations(
+      conversations,
+    );
+
+    window.localStorage.setItem(
+      SUPPORT_STORAGE_KEY,
+      JSON.stringify(conversations),
+    );
+  }
+
+  function handleSupportReply(
+    event: FormEvent<HTMLFormElement>,
+  ) {
+    event.preventDefault();
+
+    const cleanReply =
+      supportReply.trim();
+
+    if (
+      !selectedConversation ||
+      !cleanReply
+    ) {
+      return;
+    }
+
+    const now =
+      new Date().toISOString();
+
+    const replyMessage: SupportMessage = {
+      id: `MSG-${Date.now()}-${Math.random()
+        .toString(36)
+        .slice(2, 7)}`,
+      sender: "admin",
+      text: cleanReply,
+      createdAt: now,
+    };
+
+    const updatedConversations =
+      supportConversations.map(
+        (conversation) =>
+          conversation.id ===
+          selectedConversation.id
+            ? {
+                ...conversation,
+                status:
+                  "Open" as const,
+                updatedAt: now,
+                messages: [
+                  ...conversation.messages,
+                  replyMessage,
+                ],
+              }
+            : conversation,
+      );
+
+    saveSupportConversations(
+      updatedConversations,
+    );
+
+    setSupportReply("");
+  }
+
+  function updateSupportStatus(
+    conversationId: string,
+    status: "Open" | "Closed",
+  ) {
+    const now =
+      new Date().toISOString();
+
+    const updatedConversations =
+      supportConversations.map(
+        (conversation) =>
+          conversation.id ===
+          conversationId
+            ? {
+                ...conversation,
+                status,
+                updatedAt: now,
+              }
+            : conversation,
+      );
+
+    saveSupportConversations(
+      updatedConversations,
+    );
+  }
+
+  function getSupportPreview(
+    conversation:
+      SupportConversation,
+  ) {
+    const lastMessage =
+      conversation.messages[
+        conversation.messages.length -
+          1
+      ];
+
+    return (
+      lastMessage?.text ||
+      "No messages yet."
     );
   }
 
@@ -821,20 +1188,115 @@ export default function AdminPage() {
 
         {/* ORDERS */}
         <section className="mt-10 rounded-[2rem] border border-black/10 bg-white p-6">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.25em] text-blue-600">
-              Orders
-            </p>
+          <div className="flex flex-col gap-6">
+            <div className="flex flex-wrap items-start justify-between gap-5">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.25em] text-blue-600">
+                  Orders
+                </p>
 
-            <h2 className="mt-2 text-2xl font-bold">
-              Order Management
-            </h2>
+                <h2 className="mt-2 text-2xl font-bold">
+                  Order Management
+                </h2>
 
-            <p className="mt-2 text-sm text-zinc-500">
-              Review orders, open customer
-              details, and update fulfillment
-              status.
-            </p>
+                <p className="mt-2 text-sm text-zinc-500">
+                  Search orders, filter by fulfillment status,
+                  open customer details, and update order progress.
+                </p>
+              </div>
+
+              <div className="w-full sm:w-80">
+                <label className="mb-2 block text-xs font-semibold uppercase tracking-widest text-zinc-400">
+                  Search Orders
+                </label>
+
+                <input
+                  value={orderSearch}
+                  onChange={(event) =>
+                    setOrderSearch(
+                      event.target.value,
+                    )
+                  }
+                  placeholder="Order ID or customer..."
+                  className="w-full rounded-full border border-black/10 bg-[#f7f7f5] px-5 py-3 text-sm outline-none transition focus:border-blue-600"
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3">
+              {(
+                [
+                  "All",
+                  "Processing",
+                  "Shipped",
+                  "Delivered",
+                ] as OrderFilter[]
+              ).map((filter) => {
+                const active =
+                  orderFilter === filter;
+
+                return (
+                  <button
+                    key={filter}
+                    type="button"
+                    onClick={() =>
+                      setOrderFilter(filter)
+                    }
+                    className={`rounded-full border px-4 py-2 text-sm font-semibold transition ${
+                      active
+                        ? "border-blue-600 bg-blue-600 text-white"
+                        : "border-black/10 bg-white text-zinc-600 hover:border-blue-600 hover:text-blue-600"
+                    }`}
+                  >
+                    {filter}
+                    <span
+                      className={`ml-2 rounded-full px-2 py-0.5 text-xs ${
+                        active
+                          ? "bg-white/20 text-white"
+                          : "bg-zinc-100 text-zinc-500"
+                      }`}
+                    >
+                      {orderCounts[filter]}
+                    </span>
+                  </button>
+                );
+              })}
+
+              {(orderFilter !== "All" ||
+                orderSearch.trim()) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOrderFilter("All");
+                    setOrderSearch("");
+                  }}
+                  className="ml-auto text-sm font-semibold text-zinc-400 transition hover:text-black"
+                >
+                  Clear filters
+                </button>
+              )}
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-[#f7f7f5] px-4 py-3 text-sm">
+              <p className="text-zinc-500">
+                Showing{" "}
+                <span className="font-semibold text-zinc-950">
+                  {filteredOrders.length}
+                </span>{" "}
+                of{" "}
+                <span className="font-semibold text-zinc-950">
+                  {orders.length}
+                </span>{" "}
+                orders
+              </p>
+
+              <p className="text-zinc-400">
+                Filter:{" "}
+                <span className="font-semibold text-zinc-700">
+                  {orderFilter}
+                </span>
+              </p>
+            </div>
           </div>
 
           <div className="mt-7 overflow-x-auto">
@@ -864,7 +1326,7 @@ export default function AdminPage() {
               </thead>
 
               <tbody>
-                {orders.map(
+                {filteredOrders.map(
                   (order) => (
                     <tr
                       key={order.id}
@@ -891,9 +1353,7 @@ export default function AdminPage() {
 
                       <td className="py-5">
                         <select
-                          value={
-                            order.status
-                          }
+                          value={order.status}
                           onChange={(
                             event,
                           ) =>
@@ -937,12 +1397,446 @@ export default function AdminPage() {
               </tbody>
             </table>
 
-            {orders.length === 0 && (
-              <div className="py-16 text-center text-zinc-500">
-                No orders yet.
+            {filteredOrders.length === 0 && (
+              <div className="py-16 text-center">
+                <div className="text-4xl">
+                  🔎
+                </div>
+
+                <h3 className="mt-4 text-lg font-bold">
+                  No matching orders
+                </h3>
+
+                <p className="mt-2 text-sm text-zinc-500">
+                  Try another customer name, order ID,
+                  or fulfillment status.
+                </p>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOrderFilter("All");
+                    setOrderSearch("");
+                  }}
+                  className="mt-5 rounded-full border border-black/10 px-5 py-2.5 text-sm font-semibold transition hover:border-blue-600 hover:text-blue-600"
+                >
+                  Show All Orders
+                </button>
               </div>
             )}
           </div>
+        </section>
+
+        {/* CUSTOMER SUPPORT */}
+        <section className="mt-10 rounded-[2rem] border border-black/10 bg-white p-6">
+          <div className="flex flex-wrap items-start justify-between gap-5">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.25em] text-blue-600">
+                Customer Support
+              </p>
+
+              <h2 className="mt-2 text-2xl font-bold">
+                Support Inbox
+              </h2>
+
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-500">
+                Review customer conversations,
+                reply from the administration
+                workspace, and close resolved
+                support requests.
+              </p>
+            </div>
+
+            <div className="rounded-2xl bg-blue-50 px-5 py-4">
+              <p className="text-xs uppercase tracking-widest text-blue-600">
+                Open Conversations
+              </p>
+
+              <p className="mt-2 text-3xl font-black text-blue-700">
+                {supportCounts.Open}
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-7 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex flex-wrap gap-3">
+              {(
+                [
+                  "All",
+                  "Open",
+                  "Closed",
+                ] as SupportFilter[]
+              ).map((filter) => {
+                const active =
+                  supportFilter ===
+                  filter;
+
+                return (
+                  <button
+                    key={filter}
+                    type="button"
+                    onClick={() =>
+                      setSupportFilter(
+                        filter,
+                      )
+                    }
+                    className={`rounded-full border px-4 py-2 text-sm font-semibold transition ${
+                      active
+                        ? "border-blue-600 bg-blue-600 text-white"
+                        : "border-black/10 bg-white text-zinc-600 hover:border-blue-600 hover:text-blue-600"
+                    }`}
+                  >
+                    {filter}
+
+                    <span
+                      className={`ml-2 rounded-full px-2 py-0.5 text-xs ${
+                        active
+                          ? "bg-white/20 text-white"
+                          : "bg-zinc-100 text-zinc-500"
+                      }`}
+                    >
+                      {supportCounts[filter]}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <input
+              value={supportSearch}
+              onChange={(event) =>
+                setSupportSearch(
+                  event.target.value,
+                )
+              }
+              placeholder="Search customer, email, message..."
+              className="w-full rounded-full border border-black/10 bg-[#f7f7f5] px-5 py-3 text-sm outline-none transition focus:border-blue-600 lg:w-96"
+            />
+          </div>
+
+          {supportConversations.length ===
+          0 ? (
+            <div className="mt-7 rounded-[2rem] border border-dashed border-black/10 bg-[#f7f7f5] px-6 py-16 text-center">
+              <div className="text-5xl">
+                💬
+              </div>
+
+              <h3 className="mt-5 text-xl font-bold">
+                No support conversations yet
+              </h3>
+
+              <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-zinc-500">
+                Customer messages sent from the
+                NOVA storefront will appear here.
+              </p>
+            </div>
+          ) : (
+            <div className="mt-7 grid overflow-hidden rounded-[2rem] border border-black/10 lg:grid-cols-[340px_1fr]">
+              {/* CONVERSATION LIST */}
+              <div className="border-b border-black/10 bg-[#f7f7f5] lg:border-b-0 lg:border-r">
+                <div className="border-b border-black/10 px-5 py-4">
+                  <p className="text-xs font-semibold uppercase tracking-widest text-zinc-400">
+                    Conversations
+                  </p>
+
+                  <p className="mt-1 text-sm text-zinc-500">
+                    {
+                      filteredSupportConversations.length
+                    }{" "}
+                    result
+                    {filteredSupportConversations.length ===
+                    1
+                      ? ""
+                      : "s"}
+                  </p>
+                </div>
+
+                <div className="max-h-[620px] overflow-y-auto">
+                  {filteredSupportConversations.map(
+                    (
+                      conversation,
+                    ) => {
+                      const active =
+                        selectedConversationId ===
+                        conversation.id;
+
+                      return (
+                        <button
+                          key={
+                            conversation.id
+                          }
+                          type="button"
+                          onClick={() =>
+                            setSelectedConversationId(
+                              conversation.id,
+                            )
+                          }
+                          className={`w-full border-b border-black/5 p-5 text-left transition last:border-none ${
+                            active
+                              ? "bg-white"
+                              : "hover:bg-white/70"
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="truncate font-bold">
+                                {
+                                  conversation.customerName
+                                }
+                              </p>
+
+                              <p className="mt-1 truncate text-xs text-zinc-400">
+                                {
+                                  conversation.customerEmail ||
+                                  "No email provided"
+                                }
+                              </p>
+                            </div>
+
+                            <span
+                              className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-semibold ${
+                                conversation.status ===
+                                "Open"
+                                  ? "bg-green-100 text-green-700"
+                                  : "bg-zinc-200 text-zinc-600"
+                              }`}
+                            >
+                              {
+                                conversation.status
+                              }
+                            </span>
+                          </div>
+
+                          <p className="mt-3 line-clamp-2 text-sm leading-5 text-zinc-500">
+                            {getSupportPreview(
+                              conversation,
+                            )}
+                          </p>
+
+                          <div className="mt-3 flex items-center justify-between gap-3 text-[10px] uppercase tracking-wider text-zinc-400">
+                            <span>
+                              {
+                                conversation.id
+                              }
+                            </span>
+
+                            <span>
+                              {new Date(
+                                conversation.updatedAt,
+                              ).toLocaleString(
+                                [],
+                                {
+                                  month:
+                                    "short",
+                                  day: "numeric",
+                                  hour: "2-digit",
+                                  minute:
+                                    "2-digit",
+                                },
+                              )}
+                            </span>
+                          </div>
+                        </button>
+                      );
+                    },
+                  )}
+
+                  {filteredSupportConversations.length ===
+                    0 && (
+                    <div className="px-5 py-12 text-center text-sm text-zinc-500">
+                      No conversations match the
+                      current filters.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* ACTIVE CONVERSATION */}
+              <div className="flex min-h-[620px] flex-col bg-white">
+                {selectedConversation ? (
+                  <>
+                    <div className="flex flex-wrap items-center justify-between gap-4 border-b border-black/10 px-6 py-5">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-widest text-blue-600">
+                          {
+                            selectedConversation.id
+                          }
+                        </p>
+
+                        <h3 className="mt-2 text-xl font-bold">
+                          {
+                            selectedConversation.customerName
+                          }
+                        </h3>
+
+                        <p className="mt-1 text-sm text-zinc-500">
+                          {selectedConversation.customerEmail ||
+                            "No email provided"}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        {selectedConversation.status ===
+                        "Open" ? (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              updateSupportStatus(
+                                selectedConversation.id,
+                                "Closed",
+                              )
+                            }
+                            className="rounded-full border border-black/10 px-4 py-2 text-sm font-semibold transition hover:border-zinc-500"
+                          >
+                            ✓ Close Conversation
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              updateSupportStatus(
+                                selectedConversation.id,
+                                "Open",
+                              )
+                            }
+                            className="rounded-full border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700 transition hover:border-blue-600"
+                          >
+                            Reopen
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex-1 space-y-4 overflow-y-auto bg-[#f7f7f5] p-6">
+                      {selectedConversation.messages.map(
+                        (message) => (
+                          <div
+                            key={
+                              message.id
+                            }
+                            className={`flex ${
+                              message.sender ===
+                              "admin"
+                                ? "justify-end"
+                                : "justify-start"
+                            }`}
+                          >
+                            <div
+                              className={`max-w-[80%] rounded-2xl px-4 py-3 ${
+                                message.sender ===
+                                "admin"
+                                  ? "bg-blue-600 text-white"
+                                  : "border border-black/10 bg-white text-zinc-950"
+                              }`}
+                            >
+                              <p className="text-sm leading-6">
+                                {
+                                  message.text
+                                }
+                              </p>
+
+                              <p
+                                className={`mt-2 text-[10px] ${
+                                  message.sender ===
+                                  "admin"
+                                    ? "text-blue-100"
+                                    : "text-zinc-400"
+                                }`}
+                              >
+                                {message.sender ===
+                                "admin"
+                                  ? "NOVA Support"
+                                  : selectedConversation.customerName}{" "}
+                                •{" "}
+                                {new Date(
+                                  message.createdAt,
+                                ).toLocaleString(
+                                  [],
+                                  {
+                                    hour:
+                                      "2-digit",
+                                    minute:
+                                      "2-digit",
+                                    month:
+                                      "short",
+                                    day: "numeric",
+                                  },
+                                )}
+                              </p>
+                            </div>
+                          </div>
+                        ),
+                      )}
+                    </div>
+
+                    <form
+                      onSubmit={
+                        handleSupportReply
+                      }
+                      className="border-t border-black/10 p-5"
+                    >
+                      <label className="mb-2 block text-xs font-semibold uppercase tracking-widest text-zinc-400">
+                        Admin Reply
+                      </label>
+
+                      <div className="flex gap-3">
+                        <textarea
+                          value={
+                            supportReply
+                          }
+                          onChange={(
+                            event,
+                          ) =>
+                            setSupportReply(
+                              event.target.value,
+                            )
+                          }
+                          rows={2}
+                          placeholder="Write a reply to the customer..."
+                          className="min-h-14 flex-1 resize-none rounded-2xl border border-black/10 bg-[#f7f7f5] px-4 py-3 text-sm outline-none transition focus:border-blue-600"
+                        />
+
+                        <button
+                          type="submit"
+                          disabled={
+                            !supportReply.trim()
+                          }
+                          className="self-end rounded-2xl bg-blue-600 px-5 py-3 font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          Send Reply
+                        </button>
+                      </div>
+
+                      <p className="mt-3 text-xs leading-5 text-zinc-400">
+                        Local portfolio simulation:
+                        replies are stored in the
+                        browser and appear in the
+                        customer chat when the store
+                        tab syncs.
+                      </p>
+                    </form>
+                  </>
+                ) : (
+                  <div className="flex flex-1 items-center justify-center p-10 text-center">
+                    <div>
+                      <div className="text-5xl">
+                        💬
+                      </div>
+
+                      <h3 className="mt-5 text-xl font-bold">
+                        Select a conversation
+                      </h3>
+
+                      <p className="mt-2 text-sm text-zinc-500">
+                        Choose a customer message
+                        from the support inbox.
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </section>
 
         {/* ARCHITECTURE */}
@@ -971,6 +1865,8 @@ export default function AdminPage() {
               "Inventory Control",
               "Order Management",
               "Order Details",
+              "Support Inbox",
+              "Customer Chat",
               "Local Storage",
               "Next.js",
               "TypeScript",
@@ -988,3 +1884,4 @@ export default function AdminPage() {
     </main>
   );
 }
+

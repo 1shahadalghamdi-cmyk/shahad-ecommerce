@@ -19,6 +19,9 @@ function LoginForm() {
   const redirect =
     searchParams.get("redirect") || "/admin";
 
+  const forceLogin =
+    searchParams.get("force") === "1";
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
@@ -29,6 +32,13 @@ function LoginForm() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    if (forceLogin) {
+      window.localStorage.removeItem(
+        "nova-admin-auth",
+      );
+      return;
+    }
+
     const isAuthenticated =
       window.localStorage.getItem("nova-admin-auth") ===
       "true";
@@ -36,7 +46,7 @@ function LoginForm() {
     if (isAuthenticated) {
       router.replace("/admin");
     }
-  }, [router]);
+  }, [router, forceLogin]);
 
   function handleSubmit(
     event: FormEvent<HTMLFormElement>,
@@ -174,12 +184,12 @@ function LoginForm() {
             </p>
 
             <h2 className="mt-3 text-3xl font-black">
-              Welcome back
+              Administrator Sign In
             </h2>
 
             <p className="mt-3 leading-7 text-zinc-500">
-              Sign in to access the NOVA
-              administration dashboard.
+              Enter the demo administrator credentials
+              to access the NOVA dashboard.
             </p>
           </div>
 
@@ -305,6 +315,13 @@ function LoginForm() {
               Demo credentials are intentionally
               visible for project reviewers.
             </p>
+
+            <Link
+              href="/account"
+              className="mt-3 block text-center text-xs font-semibold text-zinc-500 transition hover:text-blue-600"
+            >
+              Customer Sign In
+            </Link>
           </div>
         </div>
       </section>
@@ -327,3 +344,4 @@ export default function LoginPage() {
     </Suspense>
   );
 }
+
