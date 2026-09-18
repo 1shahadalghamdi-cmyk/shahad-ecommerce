@@ -17,6 +17,7 @@ type AdminProduct = {
   price: number;
   stock: number;
   icon: string;
+  image?: string;
 };
 
 type OrderStatus =
@@ -60,6 +61,69 @@ type SupportFilter =
 const SUPPORT_STORAGE_KEY =
   "nova-support-conversations";
 
+
+const PRODUCT_IMAGE_BY_NAME: Record<
+  string,
+  string
+> = {
+  "nova wireless headphones":
+    "/products/nova-headphones.png",
+  "arc mechanical keyboard":
+    "/products/arc-keyboard.png",
+  "flow wireless mouse":
+    "/products/flow-mouse.png",
+  "vision 27” monitor":
+    "/products/vision-monitor.png",
+  'vision 27" monitor':
+    "/products/vision-monitor.png",
+  "nova usb-c hub":
+    "/products/nova-usb-c-hub.png",
+  "novabook pro 14":
+    "/products/novabook-pro.png",
+  "nova mini pc":
+    "/products/nova-mini-pc.png",
+};
+
+function getKnownProductImage(
+  productName: string,
+) {
+  return (
+    PRODUCT_IMAGE_BY_NAME[
+      productName.trim().toLowerCase()
+    ] || ""
+  );
+}
+
+function normalizeProduct(
+  product: AdminProduct,
+): AdminProduct {
+  return {
+    ...product,
+    image:
+      product.image ||
+      getKnownProductImage(product.name) ||
+      undefined,
+  };
+}
+
+function getFallbackIcon(
+  productCategory: string,
+) {
+  if (productCategory === "Audio") {
+    return "🎧";
+  }
+
+  if (productCategory === "Displays") {
+    return "🖥️";
+  }
+
+  if (productCategory === "Computers") {
+    return "💻";
+  }
+
+  return "📦";
+}
+
 const initialProducts: AdminProduct[] = [
   {
     id: 1,
@@ -68,6 +132,7 @@ const initialProducts: AdminProduct[] = [
     price: 549,
     stock: 24,
     icon: "🎧",
+    image: "/products/nova-headphones.png",
   },
   {
     id: 2,
@@ -76,6 +141,7 @@ const initialProducts: AdminProduct[] = [
     price: 399,
     stock: 18,
     icon: "⌨️",
+    image: "/products/arc-keyboard.png",
   },
   {
     id: 3,
@@ -84,6 +150,7 @@ const initialProducts: AdminProduct[] = [
     price: 249,
     stock: 8,
     icon: "🖱️",
+    image: "/products/flow-mouse.png",
   },
   {
     id: 4,
@@ -92,6 +159,34 @@ const initialProducts: AdminProduct[] = [
     price: 1299,
     stock: 4,
     icon: "🖥️",
+    image: "/products/vision-monitor.png",
+  },
+  {
+    id: 5,
+    name: "Nova USB-C Hub",
+    category: "Accessories",
+    price: 199,
+    stock: 14,
+    icon: "🔌",
+    image: "/products/nova-usb-c-hub.png",
+  },
+  {
+    id: 6,
+    name: "NovaBook Pro 14",
+    category: "Computers",
+    price: 4299,
+    stock: 7,
+    icon: "💻",
+    image: "/products/novabook-pro.png",
+  },
+  {
+    id: 7,
+    name: "NOVA Mini PC",
+    category: "Computers",
+    price: 2499,
+    stock: 6,
+    icon: "🖥️",
+    image: "/products/nova-mini-pc.png",
   },
 ];
 
@@ -163,6 +258,7 @@ export default function AdminPage() {
     useState("Accessories");
   const [price, setPrice] = useState("");
   const [stock, setStock] = useState("");
+  const [image, setImage] = useState("");
   const [icon, setIcon] = useState("📦");
 
   useEffect(() => {
@@ -173,7 +269,17 @@ export default function AdminPage() {
 
     if (savedProducts) {
       try {
-        setProducts(JSON.parse(savedProducts));
+        const parsedProducts =
+          JSON.parse(savedProducts);
+
+        setProducts(
+          Array.isArray(parsedProducts)
+            ? parsedProducts.map(
+                (product) =>
+                  normalizeProduct(product),
+              )
+            : initialProducts,
+        );
       } catch {
         window.localStorage.removeItem(
           "nova-admin-products",
@@ -474,6 +580,7 @@ export default function AdminPage() {
     setCategory("Accessories");
     setPrice("");
     setStock("");
+    setImage("");
     setIcon("📦");
     setEditingProduct(null);
     setShowForm(false);
@@ -497,7 +604,18 @@ export default function AdminPage() {
     setCategory(product.category);
     setPrice(String(product.price));
     setStock(String(product.stock));
-    setIcon(product.icon);
+    setImage(
+      product.image ||
+        getKnownProductImage(
+          product.name,
+        ),
+    );
+    setIcon(
+      product.icon ||
+        getFallbackIcon(
+          product.category,
+        ),
+    );
     setShowForm(true);
 
     window.scrollTo({
@@ -553,7 +671,17 @@ export default function AdminPage() {
                 category,
                 price: parsedPrice,
                 stock: parsedStock,
-                icon,
+                image:
+                  image.trim() ||
+                  getKnownProductImage(
+                    name.trim(),
+                  ) ||
+                  undefined,
+                icon:
+                  icon ||
+                  getFallbackIcon(
+                    category,
+                  ),
               }
             : product,
         ),
@@ -565,7 +693,17 @@ export default function AdminPage() {
         category,
         price: parsedPrice,
         stock: parsedStock,
-        icon,
+        image:
+          image.trim() ||
+          getKnownProductImage(
+            name.trim(),
+          ) ||
+          undefined,
+        icon:
+          icon ||
+          getFallbackIcon(
+            category,
+          ),
       };
 
       setProducts((current) => [
@@ -792,9 +930,9 @@ export default function AdminPage() {
 
           <p className="mt-3 max-w-2xl leading-7 text-zinc-500">
             Manage products, monitor
-            inventory, review orders, and
-            track store operations from one
-            centralized dashboard.
+            inventory, review orders, support
+            customers, and track store operations
+            from one centralized dashboard.
           </p>
         </div>
 
@@ -826,7 +964,7 @@ export default function AdminPage() {
               </button>
             </div>
 
-            <div className="mt-7 grid gap-5 md:grid-cols-2 lg:grid-cols-5">
+            <div className="mt-7 grid gap-5 md:grid-cols-2 lg:grid-cols-4">
               <div className="lg:col-span-2">
                 <label className="mb-2 block text-sm font-medium">
                   Product Name
@@ -917,21 +1055,63 @@ export default function AdminPage() {
                 />
               </div>
 
-              <div>
+              <div className="md:col-span-2 lg:col-span-2">
                 <label className="mb-2 block text-sm font-medium">
-                  Icon
+                  Product Image Path
                 </label>
 
                 <input
-                  value={icon}
+                  value={image}
                   onChange={(event) =>
-                    setIcon(
+                    setImage(
                       event.target.value,
                     )
                   }
-                  placeholder="📦"
+                  placeholder="/products/product-name.png"
+                  list="nova-product-images"
                   className="w-full rounded-xl border border-black/10 bg-[#f7f7f5] px-4 py-3 outline-none focus:border-blue-600"
                 />
+
+                <datalist id="nova-product-images">
+                  {Array.from(
+                    new Set(
+                      Object.values(
+                        PRODUCT_IMAGE_BY_NAME,
+                      ),
+                    ),
+                  ).map((path) => (
+                    <option
+                      key={path}
+                      value={path}
+                    />
+                  ))}
+                </datalist>
+
+                <p className="mt-2 text-xs leading-5 text-zinc-400">
+                  Use an image stored inside
+                  public/products, for example
+                  /products/nova-headphones.png
+                </p>
+              </div>
+
+              <div className="md:col-span-2 lg:col-span-2">
+                <p className="mb-2 text-sm font-medium">
+                  Image Preview
+                </p>
+
+                <div className="flex h-36 items-center justify-center overflow-hidden rounded-2xl border border-black/10 bg-[#f7f7f5]">
+                  {image ? (
+                    <img
+                      src={image}
+                      alt="Product preview"
+                      className="h-full w-full object-contain p-3"
+                    />
+                  ) : (
+                    <span className="text-sm font-semibold text-zinc-400">
+                      Add an image path to preview the product
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -960,8 +1140,8 @@ export default function AdminPage() {
                 </p>
               </div>
 
-              <div className="rounded-2xl bg-blue-50 p-3 text-2xl">
-                📦
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-[10px] font-black uppercase tracking-wider text-blue-600">
+                CAT
               </div>
             </div>
 
@@ -982,8 +1162,8 @@ export default function AdminPage() {
                 </p>
               </div>
 
-              <div className="rounded-2xl bg-green-50 p-3 text-2xl">
-                📊
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-green-50 text-[10px] font-black uppercase tracking-wider text-green-700">
+                QTY
               </div>
             </div>
 
@@ -1004,8 +1184,8 @@ export default function AdminPage() {
                 </p>
               </div>
 
-              <div className="rounded-2xl bg-amber-50 p-3 text-2xl">
-                ⚠️
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-50 text-[10px] font-black uppercase tracking-wider text-amber-700">
+                LOW
               </div>
             </div>
 
@@ -1027,8 +1207,8 @@ export default function AdminPage() {
                 </p>
               </div>
 
-              <div className="rounded-2xl bg-white/10 p-3 text-2xl">
-                💰
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10 text-[10px] font-black uppercase tracking-wider text-zinc-200">
+                SAR
               </div>
             </div>
 
@@ -1108,8 +1288,18 @@ export default function AdminPage() {
                       >
                         <td className="py-5">
                           <div className="flex items-center gap-4">
-                            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-zinc-100 text-2xl">
-                              {product.icon}
+                            <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-xl bg-zinc-100">
+                              {product.image ? (
+                                <img
+                                  src={product.image}
+                                  alt={product.name}
+                                  className="h-full w-full object-contain p-1.5"
+                                />
+                              ) : (
+                                <span className="text-[10px] font-black text-zinc-400">
+                                  NOVA
+                                </span>
+                              )}
                             </div>
 
                             <div>
@@ -1399,8 +1589,8 @@ export default function AdminPage() {
 
             {filteredOrders.length === 0 && (
               <div className="py-16 text-center">
-                <div className="text-4xl">
-                  🔎
+                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-zinc-950 text-[10px] font-black text-white">
+                  NOVA
                 </div>
 
                 <h3 className="mt-4 text-lg font-bold">
@@ -1517,8 +1707,8 @@ export default function AdminPage() {
           {supportConversations.length ===
           0 ? (
             <div className="mt-7 rounded-[2rem] border border-dashed border-black/10 bg-[#f7f7f5] px-6 py-16 text-center">
-              <div className="text-5xl">
-                💬
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-zinc-950 text-[10px] font-black uppercase tracking-wider text-white">
+                SUP
               </div>
 
               <h3 className="mt-5 text-xl font-bold">
@@ -1688,7 +1878,7 @@ export default function AdminPage() {
                             }
                             className="rounded-full border border-black/10 px-4 py-2 text-sm font-semibold transition hover:border-zinc-500"
                           >
-                            ✓ Close Conversation
+                            Close Conversation
                           </button>
                         ) : (
                           <button
@@ -1808,19 +1998,16 @@ export default function AdminPage() {
                       </div>
 
                       <p className="mt-3 text-xs leading-5 text-zinc-400">
-                        Local portfolio simulation:
-                        replies are stored in the
-                        browser and appear in the
-                        customer chat when the store
-                        tab syncs.
+                        Replies are saved to the conversation
+                        and sync with the customer support chat.
                       </p>
                     </form>
                   </>
                 ) : (
                   <div className="flex flex-1 items-center justify-center p-10 text-center">
                     <div>
-                      <div className="text-5xl">
-                        💬
+                      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-zinc-950 text-[10px] font-black uppercase tracking-wider text-white">
+                        SUP
                       </div>
 
                       <h3 className="mt-5 text-xl font-bold">
@@ -1850,13 +2037,11 @@ export default function AdminPage() {
           </h2>
 
           <p className="mt-3 max-w-3xl leading-7 text-zinc-400">
-            This administration dashboard
-            demonstrates product catalog
-            management, inventory monitoring,
-            stock status controls, detailed
-            order workflows, and operational
-            reporting within the NOVA
-            e-commerce platform.
+            NOVA Administration Module
+            centralizes product management,
+            inventory control, order operations,
+            customer support, and store reporting
+            in one workspace.
           </p>
 
           <div className="mt-6 flex flex-wrap gap-3">
@@ -1884,4 +2069,5 @@ export default function AdminPage() {
     </main>
   );
 }
+
 

@@ -78,29 +78,68 @@ const CUSTOMER_SESSION_KEY =
 const categories = [
   {
     name: "Computers",
-    icon: "💻",
+    image: "/products/novabook-pro.png",
     description:
       "Performance for work and creativity",
   },
   {
     name: "Accessories",
-    icon: "⌨️",
+    image: "/products/arc-keyboard.png",
     description:
       "Upgrade your everyday setup",
   },
   {
     name: "Audio",
-    icon: "🎧",
+    image: "/products/nova-headphones.png",
     description:
       "Premium sound, anywhere",
   },
   {
     name: "Displays",
-    icon: "🖥️",
+    image: "/products/vision-monitor.png",
     description:
       "See every detail clearly",
   },
 ];
+
+function getProductImage(
+  productName: string,
+  productImage?: string,
+) {
+  if (productImage) {
+    return productImage;
+  }
+
+  const normalizedName =
+    productName.trim().toLowerCase();
+
+  const productImages: Record<
+    string,
+    string
+  > = {
+    "nova wireless headphones":
+      "/products/nova-headphones.png",
+    "arc mechanical keyboard":
+      "/products/arc-keyboard.png",
+    "flow wireless mouse":
+      "/products/flow-mouse.png",
+    "vision 27” monitor":
+      "/products/vision-monitor.png",
+    'vision 27" monitor':
+      "/products/vision-monitor.png",
+    "novabook pro 14":
+      "/products/novabook-pro.png",
+    "nova mini pc":
+      "/products/nova-mini-pc.png",
+    "nova usb-c hub":
+      "/products/nova-usb-c-hub.png",
+  };
+
+  return (
+    productImages[normalizedName] || ""
+  );
+}
+
 
 export default function Home() {
   const products =
@@ -734,7 +773,7 @@ export default function Home() {
               }`}
             >
               {cartPulse
-                ? `✓ Cart (${totalItems})`
+                ? `Added · Cart (${totalItems})`
                 : `Cart (${totalItems})`}
             </Link>
           </div>
@@ -746,24 +785,23 @@ export default function Home() {
         <div className="mx-auto grid max-w-7xl items-center gap-12 px-6 py-20 lg:grid-cols-2 lg:py-28">
           <div>
             <p className="text-sm font-semibold uppercase tracking-[0.35em] text-blue-600">
-              Modern Technology Store
+              Enterprise Retail Experience
             </p>
 
             <h1 className="mt-6 max-w-3xl text-5xl font-black leading-[1.05] md:text-6xl">
-              Technology designed
-              for your{" "}
+              Smarter technology for
+              modern{" "}
               <span className="text-blue-600">
-                everyday life.
+                work and everyday life.
               </span>
             </h1>
 
             <p className="mt-7 max-w-xl text-lg leading-8 text-zinc-500">
-              Discover carefully
-              selected technology,
-              accessories, and devices
-              designed to improve the
-              way you work, create,
-              and connect.
+              Explore a curated collection of
+              computers, accessories, audio, and
+              displays through a connected retail
+              experience built around convenience,
+              visibility, and control.
             </p>
 
             <div className="mt-9 flex flex-wrap gap-4">
@@ -773,7 +811,7 @@ export default function Home() {
                 }
                 className="rounded-full bg-blue-600 px-8 py-4 font-semibold text-white transition hover:bg-blue-700"
               >
-                Shop Collection
+                Explore Products
               </button>
 
               <button
@@ -807,17 +845,17 @@ export default function Home() {
                 </p>
 
                 <p className="mt-1 text-sm text-zinc-500">
-                  Store Products
+                  Active Products
                 </p>
               </div>
 
               <div>
                 <p className="text-2xl font-black">
-                  100%
+                  End-to-End
                 </p>
 
                 <p className="mt-1 text-sm text-zinc-500">
-                  Responsive Experience
+                  Connected Workflow
                 </p>
               </div>
             </div>
@@ -836,80 +874,109 @@ export default function Home() {
                 </span>
               </div>
 
-              <div className="flex min-h-64 items-center justify-center text-8xl md:text-9xl">
-                {
-                  featuredProduct.icon
-                }
-              </div>
+              <Link
+                href={`/products/${featuredProduct.id}`}
+                className="group mt-6 block"
+              >
+                <div className="relative flex min-h-72 items-center justify-center overflow-hidden rounded-[2rem] bg-white">
+                  {getProductImage(
+                    featuredProduct.name,
+                    featuredProduct.image,
+                  ) ? (
+                    <img
+                      src={getProductImage(
+                        featuredProduct.name,
+                        featuredProduct.image,
+                      )}
+                      alt={featuredProduct.name}
+                      className="h-72 w-full object-contain p-6 transition duration-500 group-hover:scale-105"
+                    />
+                  ) : (
+                    <div className="flex h-32 w-32 items-center justify-center rounded-full bg-zinc-100 text-sm font-semibold text-zinc-400">
+                      No Image
+                    </div>
+                  )}
+                </div>
+              </Link>
 
-              <p className="text-sm font-semibold uppercase tracking-[0.3em] text-blue-400">
-                {
-                  featuredProduct.category
-                }
+              <p className="mt-7 text-sm font-semibold uppercase tracking-[0.3em] text-blue-400">
+                {featuredProduct.category}
               </p>
 
-              <h2 className="mt-3 text-3xl font-bold">
-                {
-                  featuredProduct.name
-                }
-              </h2>
+              <Link
+                href={`/products/${featuredProduct.id}`}
+                className="group inline-block"
+              >
+                <h2 className="mt-3 text-3xl font-bold transition group-hover:text-blue-300">
+                  {featuredProduct.name}
+                </h2>
+              </Link>
+
+              {featuredProduct.shortDescription && (
+                <p className="mt-3 max-w-xl text-sm leading-6 text-white/60">
+                  {featuredProduct.shortDescription}
+                </p>
+              )}
 
               <div className="mt-8 flex flex-wrap items-center justify-between gap-5">
                 <div>
                   <p className="text-2xl font-black">
-                    {
-                      featuredProduct.price
-                    }{" "}
-                    SAR
+                    {featuredProduct.price} SAR
                   </p>
 
                   <p
                     className={`mt-2 text-xs font-medium ${
-                      featuredProduct.stock >
-                      0
+                      featuredProduct.stock > 0
                         ? "text-green-400"
                         : "text-red-400"
                     }`}
                   >
-                    {featuredProduct.stock >
-                    0
+                    {featuredProduct.stock > 0
                       ? `${featuredProduct.stock} in stock`
                       : "Out of stock"}
                   </p>
                 </div>
 
-                <button
-                  disabled={
-                    featuredProduct.stock <=
-                    0
-                  }
-                  onClick={() =>
-                    handleAddToCart(
-                      featuredProduct.id,
-                      featuredProduct.name,
-                    )
-                  }
-                  className={`rounded-full px-7 py-3 font-semibold transition-all duration-300 disabled:cursor-not-allowed disabled:bg-zinc-700 disabled:text-zinc-400 ${
-                    addedProductId ===
-                    featuredProduct.id
-                      ? "scale-105 bg-green-500 text-white shadow-lg"
-                      : "bg-white text-black hover:bg-blue-600 hover:text-white"
-                  }`}
-                >
-                  {featuredProduct.stock <= 0
-                    ? "Sold Out"
-                    : addedProductId ===
-                        featuredProduct.id
-                      ? "✓ Added to Cart"
-                      : "Add to Cart →"}
-                </button>
+                <div className="flex flex-wrap gap-3">
+                  <Link
+                    href={`/products/${featuredProduct.id}`}
+                    className="rounded-full border border-white/20 px-6 py-3 font-semibold text-white transition hover:border-white hover:bg-white/10"
+                  >
+                    View Details →
+                  </Link>
+
+                  <button
+                    disabled={
+                      featuredProduct.stock <= 0
+                    }
+                    onClick={() =>
+                      handleAddToCart(
+                        featuredProduct.id,
+                        featuredProduct.name,
+                      )
+                    }
+                    className={`rounded-full px-7 py-3 font-semibold transition-all duration-300 disabled:cursor-not-allowed disabled:bg-zinc-700 disabled:text-zinc-400 ${
+                      addedProductId ===
+                      featuredProduct.id
+                        ? "scale-105 bg-green-500 text-white shadow-lg"
+                        : "bg-white text-black hover:bg-blue-600 hover:text-white"
+                    }`}
+                  >
+                    {featuredProduct.stock <= 0
+                      ? "Sold Out"
+                      : addedProductId ===
+                          featuredProduct.id
+                        ? "Added to Cart"
+                        : "Add to Cart →"}
+                  </button>
+                </div>
               </div>
             </div>
           ) : (
             <div className="flex min-h-96 items-center justify-center rounded-[2.5rem] bg-zinc-950 p-8 text-center text-white">
               <div>
-                <div className="text-6xl">
-                  📦
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-white/10 text-xs font-black tracking-[0.18em] text-white">
+                  NOVA
                 </div>
 
                 <p className="mt-5 text-xl font-bold">
@@ -970,13 +1037,15 @@ export default function Home() {
                     }
                     className="rounded-3xl border border-black/10 bg-[#f7f7f5] p-7 text-left transition hover:-translate-y-1 hover:border-blue-600"
                   >
-                    <div className="text-5xl">
-                      {
-                        category.icon
-                      }
+                    <div className="flex h-36 items-center justify-center overflow-hidden rounded-2xl bg-white">
+                      <img
+                        src={category.image}
+                        alt={category.name}
+                        className="h-full w-full object-contain p-4 transition duration-300 hover:scale-105"
+                      />
                     </div>
 
-                    <h3 className="mt-8 text-xl font-bold">
+                    <h3 className="mt-6 text-xl font-bold">
                       {
                         category.name
                       }
@@ -1022,12 +1091,13 @@ export default function Home() {
                 </p>
 
                 <h2 className="mt-3 text-4xl font-black">
-                  Find your next device
+                  Explore the NOVA catalog
                 </h2>
 
                 <p className="mt-3 max-w-2xl leading-7 text-zinc-500">
-                  Search the NOVA catalog or filter
-                  products by category.
+                  Browse products, compare categories,
+                  save favorites, and open any product
+                  for full specifications and details.
                 </p>
               </div>
 
@@ -1038,7 +1108,21 @@ export default function Home() {
 
                 <div className="relative">
                   <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400">
-                    🔎
+                    <svg
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
+                      className="h-4 w-4"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    >
+                      <circle
+                        cx="11"
+                        cy="11"
+                        r="7"
+                      />
+                      <path d="m20 20-3.5-3.5" />
+                    </svg>
                   </span>
 
                   <input
@@ -1100,7 +1184,7 @@ export default function Home() {
                     : "border-black/10 bg-white text-zinc-600 hover:border-rose-500 hover:text-rose-600"
                 }`}
               >
-                ❤️ Wishlist ({wishlistIds.length})
+                Wishlist ({wishlistIds.length})
               </button>
 
               {(selectedCategory !== "All" ||
@@ -1150,14 +1234,40 @@ export default function Home() {
           </div>
 
           {filteredProducts.length > 0 ? (
-            <div className="mt-10 grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="mt-10 grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
               {filteredProducts.map(
                 (product, index) => (
                   <article
                     key={product.id}
-                    className="overflow-hidden rounded-3xl border border-black/10 bg-white transition hover:-translate-y-1 hover:shadow-lg"
+                    className="group overflow-hidden rounded-[2rem] border border-black/10 bg-white transition duration-300 hover:-translate-y-1 hover:shadow-xl"
                   >
-                    <div className="relative flex h-64 items-center justify-center bg-zinc-100 text-7xl">
+                    <div className="relative">
+                      <Link
+                        href={`/products/${product.id}`}
+                        className="block"
+                        aria-label={`View ${product.name} details`}
+                      >
+                        <div className="relative flex h-72 items-center justify-center overflow-hidden bg-zinc-100">
+                          {getProductImage(
+                            product.name,
+                            product.image,
+                          ) ? (
+                            <img
+                              src={getProductImage(
+                                product.name,
+                                product.image,
+                              )}
+                              alt={product.name}
+                              className="h-full w-full object-contain p-7 transition duration-500 group-hover:scale-105"
+                            />
+                          ) : (
+                            <div className="flex h-32 w-32 items-center justify-center rounded-full bg-white text-sm font-semibold text-zinc-400">
+                              No Image
+                            </div>
+                          )}
+                        </div>
+                      </Link>
+
                       <span className="absolute left-5 top-5 rounded-full bg-black px-3 py-1.5 text-xs text-white">
                         {product.stock <= 0
                           ? "Sold Out"
@@ -1207,8 +1317,6 @@ export default function Home() {
                           ? "♥"
                           : "♡"}
                       </button>
-
-                      {product.icon}
                     </div>
 
                     <div className="p-6">
@@ -1216,9 +1324,20 @@ export default function Home() {
                         {product.category}
                       </p>
 
-                      <h3 className="mt-3 min-h-14 text-xl font-bold">
-                        {product.name}
-                      </h3>
+                      <Link
+                        href={`/products/${product.id}`}
+                        className="inline-block"
+                      >
+                        <h3 className="mt-3 text-xl font-bold transition hover:text-blue-600">
+                          {product.name}
+                        </h3>
+                      </Link>
+
+                      {product.shortDescription && (
+                        <p className="mt-3 min-h-12 text-sm leading-6 text-zinc-500">
+                          {product.shortDescription}
+                        </p>
+                      )}
 
                       <div className="mt-5 flex items-center justify-between gap-3">
                         <p className="text-lg font-bold">
@@ -1240,30 +1359,39 @@ export default function Home() {
                         </p>
                       </div>
 
-                      <button
-                        disabled={
-                          product.stock <= 0
-                        }
-                        onClick={() =>
-                          handleAddToCart(
-                            product.id,
-                            product.name,
-                          )
-                        }
-                        className={`mt-6 w-full rounded-full py-3.5 font-semibold text-white transition-all duration-300 disabled:cursor-not-allowed disabled:bg-zinc-200 disabled:text-zinc-500 ${
-                          addedProductId ===
-                          product.id
-                            ? "scale-[1.03] bg-green-600 shadow-lg"
-                            : "bg-black hover:bg-blue-600"
-                        }`}
-                      >
-                        {product.stock <= 0
-                          ? "Out of Stock"
-                          : addedProductId ===
-                              product.id
-                            ? "✓ Added to Cart"
-                            : "Add to Cart"}
-                      </button>
+                      <div className="mt-6 grid grid-cols-2 gap-3">
+                        <Link
+                          href={`/products/${product.id}`}
+                          className="rounded-full border border-black/10 py-3.5 text-center text-sm font-semibold transition hover:border-blue-600 hover:text-blue-600"
+                        >
+                          View Details
+                        </Link>
+
+                        <button
+                          disabled={
+                            product.stock <= 0
+                          }
+                          onClick={() =>
+                            handleAddToCart(
+                              product.id,
+                              product.name,
+                            )
+                          }
+                          className={`rounded-full py-3.5 text-sm font-semibold text-white transition-all duration-300 disabled:cursor-not-allowed disabled:bg-zinc-200 disabled:text-zinc-500 ${
+                            addedProductId ===
+                            product.id
+                              ? "scale-[1.03] bg-green-600 shadow-lg"
+                              : "bg-black hover:bg-blue-600"
+                          }`}
+                        >
+                          {product.stock <= 0
+                            ? "Out of Stock"
+                            : addedProductId ===
+                                product.id
+                              ? "Added"
+                              : "Add to Cart"}
+                        </button>
+                      </div>
                     </div>
                   </article>
                 ),
@@ -1271,8 +1399,8 @@ export default function Home() {
             </div>
           ) : (
             <div className="mt-10 rounded-[2rem] border border-dashed border-black/10 bg-white px-6 py-20 text-center">
-              <div className="text-6xl">
-                🔎
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-zinc-950 text-[10px] font-black tracking-[0.15em] text-white">
+                NOVA
               </div>
 
               <h3 className="mt-5 text-2xl font-bold">
@@ -1313,8 +1441,8 @@ export default function Home() {
             </p>
 
             <h2 className="mt-5 max-w-xl text-5xl font-black leading-tight">
-              A complete digital
-              commerce experience.
+              A connected retail
+              management experience.
             </h2>
           </div>
 
@@ -1324,13 +1452,13 @@ export default function Home() {
                 title:
                   "Secure Checkout",
                 description:
-                  "Structured checkout workflow with simulated payment options.",
+                  "A structured checkout flow with promotions, delivery details, and secure test-mode payment validation.",
               },
               {
                 title:
                   "Inventory Control",
                 description:
-                  "Real-time product stock synchronized with the admin dashboard.",
+                  "Product stock updates across the storefront and administration workflow as orders are processed.",
               },
               {
                 title:
@@ -1342,19 +1470,19 @@ export default function Home() {
                 title:
                   "Order Management",
                 description:
-                  "Customer orders flow directly into the administration workflow.",
+                  "Orders move from checkout into administration, fulfillment status, and customer tracking.",
               },
               {
                 title:
                   "Customer Support",
                 description:
-                  "Built-in support chat connects customer conversations with the administration workflow.",
+                  "Customer conversations are connected to a dedicated administration support inbox.",
               },
               {
                 title:
                   "Wishlist",
                 description:
-                  "Customers can save favorite products and return to them later in the same browser.",
+                  "Customers can save favorite products and quickly return to their selected items.",
               },
             ].map(
               (feature) => (
@@ -1391,8 +1519,8 @@ export default function Home() {
             </p>
 
             <p className="text-sm text-zinc-500">
-              Enterprise E-Commerce
-              Platform • Portfolio Project
+              Enterprise E-Commerce & Retail
+              Management Platform
             </p>
           </div>
         </footer>
@@ -1403,8 +1531,8 @@ export default function Home() {
         <div className="pointer-events-none fixed left-1/2 top-7 z-[100] w-[calc(100vw-2rem)] max-w-md -translate-x-1/2">
           <div className="animate-bounce rounded-[1.5rem] border border-green-200 bg-white p-4 shadow-2xl ring-4 ring-green-100">
             <div className="flex items-center gap-4">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-green-600 text-2xl font-black text-white">
-                ✓
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-green-600 text-[10px] font-black tracking-wider text-white">
+                ADD
               </div>
 
               <div className="min-w-0 flex-1">
@@ -1418,7 +1546,7 @@ export default function Home() {
               </div>
 
               <div className="rounded-full bg-green-50 px-3 py-2 text-sm font-bold text-green-700">
-                +1 🛒
+                +1 item
               </div>
             </div>
           </div>
@@ -1454,9 +1582,8 @@ export default function Home() {
 
             <div className="border-b border-black/10 bg-blue-50 px-5 py-3">
               <p className="text-xs leading-5 text-zinc-600">
-                Portfolio support simulation.
-                Messages are connected to the
-                NOVA administration workflow.
+                Customer messages are routed directly to the
+                NOVA administration support inbox.
               </p>
             </div>
 
@@ -1466,14 +1593,14 @@ export default function Home() {
                 0 ? (
                 <div className="rounded-2xl border border-black/10 bg-white p-5">
                   <p className="font-semibold">
-                    👋 Hi! How can we help?
+                    How can we help?
                   </p>
 
                   <p className="mt-2 text-sm leading-6 text-zinc-500">
-                    Send a message and the
-                    support conversation will
-                    appear in the NOVA admin
-                    support inbox.
+                    Send a message to start a
+                    conversation with NOVA Support.
+                    Your conversation will appear
+                    in the administration inbox.
                   </p>
                 </div>
               ) : (
@@ -1628,8 +1755,8 @@ export default function Home() {
               </span>
             )}
 
-          <span className="text-xl">
-            💬
+          <span className="flex h-7 min-w-7 items-center justify-center rounded-full bg-white/15 px-2 text-[10px] font-black tracking-wider">
+            SUP
           </span>
 
           <span>
@@ -1642,4 +1769,5 @@ export default function Home() {
     </main>
   );
 }
+
 

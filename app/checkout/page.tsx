@@ -417,14 +417,14 @@ export default function CheckoutPage() {
 
       if (!cardholderName) {
         setCheckoutError(
-          "Please enter the cardholder name for the demo payment.",
+          "Please enter the cardholder name.",
         );
         return;
       }
 
       if (!/^\d{13,19}$/.test(cardNumber)) {
         setCheckoutError(
-          "Please enter a valid demo card number using 13 to 19 digits.",
+          "Please enter a valid test card number using 13 to 19 digits.",
         );
         return;
       }
@@ -640,9 +640,9 @@ export default function CheckoutPage() {
           </h1>
 
           <p className="mx-auto mt-5 max-w-lg leading-7 text-zinc-500">
-            Your order has been recorded successfully and sent to the
-            NOVA administration workflow. Card payments are simulated
-            for portfolio demonstration only.
+            Your order has been created successfully and is now being
+            prepared by the NOVA fulfillment workflow. Card payments
+            use a test environment, so no real charge is processed.
           </p>
 
           <div className="mx-auto mt-8 max-w-sm space-y-4 rounded-2xl bg-zinc-100 p-5">
@@ -698,7 +698,9 @@ export default function CheckoutPage() {
                     : "text-amber-600"
                 }`}
               >
-                {confirmedPaymentStatus}
+                {confirmedPaymentStatus === "Paid (Demo)"
+                  ? "Paid (Test)"
+                  : confirmedPaymentStatus}
               </p>
             </div>
 
@@ -726,7 +728,7 @@ export default function CheckoutPage() {
 
           <div className="mt-9 flex flex-wrap justify-center gap-3">
             <Link
-              href="/track-order"
+              href={`/track-order?order=${encodeURIComponent(orderNumber)}`}
               className="rounded-full bg-blue-600 px-8 py-4 font-semibold text-white transition hover:bg-blue-700"
             >
               Track Order →
@@ -739,12 +741,6 @@ export default function CheckoutPage() {
               Back to Store
             </Link>
 
-            <Link
-              href="/admin"
-              className="rounded-full border border-black/10 px-8 py-4 font-semibold transition hover:border-blue-600 hover:text-blue-600"
-            >
-              Admin Dashboard
-            </Link>
           </div>
         </div>
       </main>
@@ -764,7 +760,11 @@ export default function CheckoutPage() {
 
         <section className="mx-auto max-w-3xl px-6 py-24 text-center">
           <div className="rounded-[2rem] border border-black/10 bg-white p-12">
-            <div className="text-6xl">🛒</div>
+            <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-[1.5rem] bg-zinc-950">
+              <span className="text-xl font-black tracking-tight text-white">
+                NOVA<span className="text-blue-500">.</span>
+              </span>
+            </div>
 
             <h1 className="mt-6 text-3xl font-bold">
               Your cart is empty
@@ -825,7 +825,7 @@ export default function CheckoutPage() {
 
         {checkoutError && (
           <div className="mb-8 rounded-2xl border border-red-200 bg-red-50 px-6 py-4 text-sm font-medium text-red-700">
-            ⚠️ {checkoutError}
+            {checkoutError}
           </div>
         )}
 
@@ -929,16 +929,16 @@ export default function CheckoutPage() {
                   {locationStatus === "loading"
                     ? "Getting Location..."
                     : deliveryLocation
-                      ? "✓ Location Added"
-                      : "📍 Use My Location"}
+                      ? "Location Added"
+                      : "Use My Location"}
                 </button>
               </div>
 
               <div className="mt-6 rounded-2xl border border-blue-100 bg-blue-50 p-4">
                 <p className="text-sm leading-6 text-zinc-600">
-                  Your written address is still required. Location is an
-                  optional extra delivery pin that can be attached to the
-                  order for the admin team.
+                  Your written address is still required. You can also
+                  attach your current location as an optional delivery pin
+                  to help the fulfillment team locate the destination.
                 </p>
 
                 {locationMessage && (
@@ -1079,10 +1079,10 @@ export default function CheckoutPage() {
                       : "border-black/10"
                   }`}
                 >
-                  <p className="font-semibold">💳 Card</p>
+                  <p className="font-semibold">Card Payment</p>
 
                   <p className="mt-1 text-sm text-zinc-500">
-                    Simulated online payment
+                    Secure checkout in test mode
                   </p>
                 </button>
 
@@ -1097,7 +1097,7 @@ export default function CheckoutPage() {
                       : "border-black/10"
                   }`}
                 >
-                  <p className="font-semibold">📦 Cash on Delivery</p>
+                  <p className="font-semibold">Cash on Delivery</p>
 
                   <p className="mt-1 text-sm text-zinc-500">
                     Payment stays pending until delivery
@@ -1109,7 +1109,7 @@ export default function CheckoutPage() {
                 <div className="mt-6 rounded-2xl bg-zinc-100 p-5">
                   <div className="mb-5 rounded-xl border border-amber-200 bg-amber-50 p-4">
                     <p className="text-sm font-medium text-amber-800">
-                      Demo payment only — do not enter real card
+                      Test payment environment — do not enter real card
                       information.
                     </p>
                   </div>
@@ -1125,7 +1125,7 @@ export default function CheckoutPage() {
                         name="cardholderName"
                         type="text"
                         autoComplete="off"
-                        placeholder="Demo Customer"
+                        placeholder="Cardholder name"
                         className="w-full rounded-xl border border-black/10 bg-white px-4 py-3 outline-none focus:border-blue-600"
                       />
                     </div>
@@ -1184,9 +1184,9 @@ export default function CheckoutPage() {
 
                   <div className="mt-5 rounded-xl border border-green-200 bg-green-50 p-4">
                     <p className="text-sm leading-6 text-green-800">
-                      For this portfolio simulation, a valid demo card
-                      form is marked as <strong>Paid (Demo)</strong>. No
-                      bank, payment gateway, or real transaction is used.
+                      Test mode validates the checkout form and records the
+                      payment as successful for the order workflow. No bank,
+                      payment gateway, or real transaction is used.
                     </p>
                   </div>
                 </div>
@@ -1223,12 +1223,31 @@ export default function CheckoutPage() {
                   key={product.id}
                   className="flex items-center gap-4 border-b border-white/10 pb-5"
                 >
-                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-white/10 text-2xl">
-                    {product.icon}
-                  </div>
+                  <Link
+                    href={`/products/${product.id}`}
+                    className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white"
+                    aria-label={`View ${product.name} details`}
+                  >
+                    {product.image ? (
+                      <img
+                        src={product.image}
+                        alt={product.name}
+                        className="h-full w-full object-contain p-1.5"
+                      />
+                    ) : (
+                      <span className="text-[9px] font-semibold text-zinc-400">
+                        No Image
+                      </span>
+                    )}
+                  </Link>
 
                   <div className="min-w-0 flex-1">
-                    <p className="font-medium">{product.name}</p>
+                    <Link
+                      href={`/products/${product.id}`}
+                      className="font-medium transition hover:text-blue-400"
+                    >
+                      {product.name}
+                    </Link>
 
                     <p className="mt-1 text-xs text-zinc-500">
                       Qty: {product.quantity}
@@ -1275,7 +1294,7 @@ export default function CheckoutPage() {
 
                 <span className="text-white">
                   {paymentMethod === "Card"
-                    ? "Card (Demo)"
+                    ? "Card (Test Mode)"
                     : "Cash on Delivery"}
                 </span>
               </div>
@@ -1311,10 +1330,9 @@ export default function CheckoutPage() {
 
             <div className="mt-5 rounded-xl border border-white/10 bg-white/5 p-4">
               <p className="text-xs leading-5 text-zinc-400">
-                🔒 Portfolio checkout simulation. Card validation,
-                payment status, inventory updates, delivery pin, and
-                order creation are demonstrated without processing a
-                real transaction.
+                Card payments run in test mode. Inventory updates,
+                delivery location, discounts, and order creation remain
+                connected to the NOVA order workflow.
               </p>
             </div>
           </aside>
@@ -1323,4 +1341,5 @@ export default function CheckoutPage() {
     </main>
   );
 }
+
 

@@ -27,9 +27,9 @@ const USERS_KEY =
 const SESSION_KEY =
   "nova-customer-session";
 
-const DEMO_CUSTOMER = {
-  id: "CUS-DEMO",
-  name: "Demo Customer",
+const TEST_CUSTOMER = {
+  id: "CUS-TEST",
+  name: "NOVA Customer",
   email: "customer@nova.com",
   password: "Customer123!",
 };
@@ -95,28 +95,39 @@ export default function CustomerAccountPage() {
     const existingUsers =
       getUsers();
 
-    const demoExists =
-      existingUsers.some(
+    const existingTestUser =
+      existingUsers.find(
         (user) =>
           user.email.toLowerCase() ===
-          DEMO_CUSTOMER.email,
+          TEST_CUSTOMER.email,
       );
 
-    if (!demoExists) {
-      const demoUser: CustomerUser = {
-        ...DEMO_CUSTOMER,
-        createdAt:
-          new Date().toISOString(),
-      };
+    const normalizedTestUser:
+      CustomerUser = {
+      ...TEST_CUSTOMER,
+      createdAt:
+        existingTestUser?.createdAt ??
+        new Date().toISOString(),
+    };
 
-      window.localStorage.setItem(
-        USERS_KEY,
-        JSON.stringify([
-          demoUser,
-          ...existingUsers,
-        ]),
-      );
-    }
+    const updatedUsers =
+      existingTestUser
+        ? existingUsers.map(
+            (user) =>
+              user.email.toLowerCase() ===
+              TEST_CUSTOMER.email
+                ? normalizedTestUser
+                : user,
+          )
+        : [
+            normalizedTestUser,
+            ...existingUsers,
+          ];
+
+    window.localStorage.setItem(
+      USERS_KEY,
+      JSON.stringify(updatedUsers),
+    );
 
     const saved =
       window.localStorage.getItem(
@@ -128,9 +139,35 @@ export default function CustomerAccountPage() {
     }
 
     try {
-      setSession(
-        JSON.parse(saved),
-      );
+      const savedSession:
+        CustomerSession =
+        JSON.parse(saved);
+
+      if (
+        savedSession.email.toLowerCase() ===
+        TEST_CUSTOMER.email
+      ) {
+        const normalizedSession:
+          CustomerSession = {
+          id: TEST_CUSTOMER.id,
+          name: TEST_CUSTOMER.name,
+          email: TEST_CUSTOMER.email,
+        };
+
+        window.localStorage.setItem(
+          SESSION_KEY,
+          JSON.stringify(
+            normalizedSession,
+          ),
+        );
+
+        setSession(
+          normalizedSession,
+        );
+        return;
+      }
+
+      setSession(savedSession);
     } catch {
       window.localStorage.removeItem(
         SESSION_KEY,
@@ -152,13 +189,13 @@ export default function CustomerAccountPage() {
     setConfirmPassword("");
   }
 
-  function fillDemoCredentials() {
+  function fillTestCredentials() {
     setMode("signin");
     setEmail(
-      DEMO_CUSTOMER.email,
+      TEST_CUSTOMER.email,
     );
     setPassword(
-      DEMO_CUSTOMER.password,
+      TEST_CUSTOMER.password,
     );
     setConfirmPassword("");
     setName("");
@@ -196,7 +233,7 @@ export default function CustomerAccountPage() {
 
       if (password.length < 6) {
         setError(
-          "Password must be at least 6 characters for this demo.",
+          "Password must be at least 6 characters.",
         );
         return;
       }
@@ -354,7 +391,7 @@ export default function CustomerAccountPage() {
                 </h1>
 
                 <p className="mt-3 text-zinc-500">
-                  Your NOVA customer session is active.
+                  Your NOVA account is ready.
                 </p>
               </div>
 
@@ -389,7 +426,7 @@ export default function CustomerAccountPage() {
 
             {message && (
               <div className="mt-6 rounded-2xl border border-green-200 bg-green-50 px-5 py-4 text-sm font-medium text-green-700">
-                ✓ {message}
+                {message}
               </div>
             )}
 
@@ -417,14 +454,6 @@ export default function CustomerAccountPage() {
               </button>
             </div>
 
-            <div className="mt-8 rounded-2xl border border-amber-200 bg-amber-50 p-5">
-              <p className="text-sm leading-6 text-amber-800">
-                Portfolio authentication simulation.
-                Customer accounts are currently stored
-                only in this browser. Tomorrow, this can
-                be migrated to Supabase Auth and SQL.
-              </p>
-            </div>
           </div>
         </section>
       </main>
@@ -461,46 +490,41 @@ export default function CustomerAccountPage() {
           </p>
 
           <h1 className="mt-5 max-w-2xl text-6xl font-black leading-[1.05]">
-            Save your shopping journey in one place.
+            Save your NOVA experience in one place.
           </h1>
 
           <p className="mt-6 max-w-xl text-lg leading-8 text-zinc-500">
-            Create a customer account to prepare
-            for saved profiles, order history,
-            wishlist sync, and personalized
-            shopping experiences.
+            Create an account to keep your wishlist,
+            track orders, manage your shopping activity,
+            and stay connected with NOVA support.
           </p>
 
           <div className="mt-10 grid max-w-2xl gap-4 sm:grid-cols-2">
             {[
               [
-                "❤️",
                 "Wishlist",
                 "Keep favorite products ready for later.",
               ],
               [
-                "📦",
                 "Order Tracking",
-                "Follow processing, shipping, and delivery.",
+                "Check the latest status of your NOVA orders.",
               ],
               [
-                "💬",
                 "Customer Support",
-                "Continue support conversations with NOVA.",
+                "Continue conversations with NOVA support.",
               ],
               [
-                "🛒",
                 "Shopping",
-                "Prepare for customer-specific cart experiences.",
+                "Move smoothly from product discovery to checkout.",
               ],
             ].map(
-              ([icon, title, description]) => (
+              ([title, description], index) => (
                 <div
                   key={title}
                   className="rounded-3xl border border-black/10 bg-white p-5"
                 >
-                  <div className="text-2xl">
-                    {icon}
+                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-50 text-xs font-black text-blue-600">
+                    {String(index + 1).padStart(2, "0")}
                   </div>
 
                   <h2 className="mt-4 font-bold">
@@ -565,7 +589,7 @@ export default function CustomerAccountPage() {
             <p className="mt-3 leading-7 text-zinc-500">
               {mode === "signin"
                 ? "Sign in to your NOVA customer account."
-                : "Create a customer account for this portfolio demo."}
+                : "Create your NOVA customer account."}
             </p>
           </div>
 
@@ -574,7 +598,7 @@ export default function CustomerAccountPage() {
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-widest text-blue-600">
-                    Demo Customer Access
+                    Test Customer Access
                   </p>
 
                   <div className="mt-3 space-y-1 text-sm">
@@ -600,10 +624,10 @@ export default function CustomerAccountPage() {
 
                 <button
                   type="button"
-                  onClick={fillDemoCredentials}
+                  onClick={fillTestCredentials}
                   className="shrink-0 rounded-full bg-blue-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-blue-700"
                 >
-                  Use Demo
+                  Use Test Account
                 </button>
               </div>
             </div>
@@ -729,7 +753,7 @@ export default function CustomerAccountPage() {
 
             {message && (
               <div className="mt-5 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
-                ✓ {message}
+                {message}
               </div>
             )}
 
@@ -745,8 +769,7 @@ export default function CustomerAccountPage() {
 
           <div className="mt-7 border-t border-black/10 pt-6">
             <p className="text-center text-xs leading-5 text-zinc-400">
-              Customer account simulation.
-              Admin access remains separate.
+              Customer and administrator access use separate sign-in areas.
             </p>
 
             <Link
@@ -761,4 +784,5 @@ export default function CustomerAccountPage() {
     </main>
   );
 }
+
 

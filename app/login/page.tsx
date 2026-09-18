@@ -40,8 +40,9 @@ function LoginForm() {
     }
 
     const isAuthenticated =
-      window.localStorage.getItem("nova-admin-auth") ===
-      "true";
+      window.localStorage.getItem(
+        "nova-admin-auth",
+      ) === "true";
 
     if (isAuthenticated) {
       router.replace("/admin");
@@ -56,13 +57,14 @@ function LoginForm() {
     setError("");
     setLoading(true);
 
-    const demoEmail = "admin@nova.com";
-    const demoPassword = "Admin123!";
+    const testEmail = "admin@nova.com";
+    const testPassword = "Admin123!";
 
     window.setTimeout(() => {
       if (
-        email.trim().toLowerCase() === demoEmail &&
-        password === demoPassword
+        email.trim().toLowerCase() ===
+          testEmail &&
+        password === testPassword
       ) {
         window.localStorage.setItem(
           "nova-admin-auth",
@@ -74,14 +76,14 @@ function LoginForm() {
       }
 
       setError(
-        "Invalid email or password. Use the demo administrator credentials.",
+        "Invalid email or password. Use the test administrator credentials shown above.",
       );
 
       setLoading(false);
     }, 500);
   }
 
-  function fillDemoCredentials() {
+  function fillTestCredentials() {
     setEmail("admin@nova.com");
     setPassword("Admin123!");
     setError("");
@@ -97,7 +99,9 @@ function LoginForm() {
             className="text-2xl font-black tracking-tight"
           >
             NOVA
-            <span className="text-blue-600">.</span>
+            <span className="text-blue-600">
+              .
+            </span>
           </Link>
 
           <Link
@@ -124,39 +128,40 @@ function LoginForm() {
           <p className="mt-6 max-w-xl text-lg leading-8 text-zinc-500">
             Secure access to product management,
             inventory monitoring, order workflows,
-            and e-commerce operations.
+            customer support, and store operations.
           </p>
 
           <div className="mt-10 grid max-w-2xl gap-4 sm:grid-cols-2">
             {[
               [
-                "📦",
                 "Product Management",
-                "Create, edit and manage the product catalog.",
+                "Create, edit, and manage the product catalog.",
               ],
               [
-                "📊",
                 "Inventory Control",
                 "Monitor stock levels and inventory value.",
               ],
               [
-                "🧾",
                 "Order Management",
                 "Review orders and update fulfillment status.",
               ],
               [
-                "🔐",
                 "Admin Access",
-                "Restricted administration workspace.",
+                "Use a dedicated administration workspace.",
               ],
             ].map(
-              ([icon, title, description]) => (
+              (
+                [title, description],
+                index,
+              ) => (
                 <div
                   key={title}
                   className="rounded-3xl border border-black/10 bg-white p-5"
                 >
-                  <div className="text-2xl">
-                    {icon}
+                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-50 text-xs font-black text-blue-600">
+                    {String(
+                      index + 1,
+                    ).padStart(2, "0")}
                   </div>
 
                   <h2 className="mt-4 font-bold">
@@ -175,8 +180,8 @@ function LoginForm() {
         {/* LOGIN CARD */}
         <div className="rounded-[2.5rem] border border-black/10 bg-white p-7 shadow-sm md:p-9">
           <div>
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-zinc-950 text-2xl text-white">
-              🔐
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-zinc-950 text-xs font-black uppercase tracking-[0.18em] text-white">
+              ADM
             </div>
 
             <p className="mt-7 text-xs font-semibold uppercase tracking-[0.25em] text-blue-600">
@@ -188,17 +193,17 @@ function LoginForm() {
             </h2>
 
             <p className="mt-3 leading-7 text-zinc-500">
-              Enter the demo administrator credentials
-              to access the NOVA dashboard.
+              Enter the administrator credentials to
+              access the NOVA dashboard.
             </p>
           </div>
 
-          {/* DEMO CREDENTIALS */}
+          {/* TEST CREDENTIALS */}
           <div className="mt-7 rounded-2xl border border-blue-100 bg-blue-50 p-5">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-widest text-blue-600">
-                  Demo Admin Access
+                  Test Admin Access
                 </p>
 
                 <div className="mt-3 space-y-1 text-sm">
@@ -224,10 +229,12 @@ function LoginForm() {
 
               <button
                 type="button"
-                onClick={fillDemoCredentials}
+                onClick={
+                  fillTestCredentials
+                }
                 className="shrink-0 rounded-full bg-blue-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-blue-700"
               >
-                Use Demo
+                Use Test Account
               </button>
             </div>
           </div>
@@ -246,7 +253,9 @@ function LoginForm() {
                 type="email"
                 value={email}
                 onChange={(event) =>
-                  setEmail(event.target.value)
+                  setEmail(
+                    event.target.value,
+                  )
                 }
                 placeholder="admin@nova.com"
                 className="w-full rounded-xl border border-black/10 bg-[#f7f7f5] px-4 py-3.5 outline-none transition focus:border-blue-600"
@@ -280,7 +289,8 @@ function LoginForm() {
                   type="button"
                   onClick={() =>
                     setShowPassword(
-                      (current) => !current,
+                      (current) =>
+                        !current,
                     )
                   }
                   className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-semibold text-zinc-500 hover:text-black"
@@ -311,9 +321,8 @@ function LoginForm() {
 
           <div className="mt-7 border-t border-black/10 pt-6">
             <p className="text-center text-xs leading-5 text-zinc-400">
-              Portfolio authentication simulation.
-              Demo credentials are intentionally
-              visible for project reviewers.
+              Administrator access is separate
+              from customer sign in.
             </p>
 
             <Link

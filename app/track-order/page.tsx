@@ -2,6 +2,7 @@
 
 import {
   FormEvent,
+  useEffect,
   useState,
 } from "react";
 import Link from "next/link";
@@ -90,16 +91,14 @@ export default function TrackOrderPage() {
   const [error, setError] =
     useState("");
 
-  function handleTrackOrder(
-    event: FormEvent<HTMLFormElement>,
+  function findOrderById(
+    orderId: string,
   ) {
-    event.preventDefault();
-
     setError("");
     setSearched(true);
 
     const normalizedOrderId =
-      orderInput.trim().toUpperCase();
+      orderId.trim().toUpperCase();
 
     if (!normalizedOrderId) {
       setOrder(null);
@@ -117,7 +116,7 @@ export default function TrackOrderPage() {
     if (!savedOrders) {
       setOrder(null);
       setError(
-        "No order records were found in this browser.",
+        "No saved orders were found.",
       );
       return;
     }
@@ -146,9 +145,31 @@ export default function TrackOrderPage() {
     } catch {
       setOrder(null);
       setError(
-        "We could not read the order records. Please try again.",
+        "We could not load the order. Please try again.",
       );
     }
+  }
+
+  useEffect(() => {
+    const searchParams =
+      new URLSearchParams(
+        window.location.search,
+      );
+
+    const orderFromUrl =
+      searchParams.get("order");
+
+    if (orderFromUrl) {
+      setOrderInput(orderFromUrl);
+      findOrderById(orderFromUrl);
+    }
+  }, []);
+
+  function handleTrackOrder(
+    event: FormEvent<HTMLFormElement>,
+  ) {
+    event.preventDefault();
+    findOrderById(orderInput);
   }
 
   function resetTracking() {
@@ -167,7 +188,7 @@ export default function TrackOrderPage() {
       ? new Date(
           order.createdAt,
         ).toLocaleString()
-      : "Demo Order";
+      : "Order date unavailable";
 
   const deliveryLocation =
     order?.shippingAddress?.location;
@@ -264,23 +285,20 @@ export default function TrackOrderPage() {
             </button>
           </div>
 
-          <p className="mt-3 text-xs leading-5 text-zinc-400">
-            Portfolio demo: order tracking
-            currently reads orders stored in this
-            browser.
-          </p>
         </form>
 
         {error && (
           <div className="mx-auto mt-6 max-w-3xl rounded-2xl border border-red-200 bg-red-50 px-6 py-4 text-sm font-medium text-red-700">
-            ⚠️ {error}
+            {error}
           </div>
         )}
 
         {!order && !searched && (
           <div className="mx-auto mt-10 max-w-3xl rounded-[2rem] border border-dashed border-black/10 bg-white px-6 py-16 text-center">
-            <div className="text-6xl">
-              📦
+            <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-[1.5rem] bg-zinc-950">
+              <span className="text-xl font-black tracking-tight text-white">
+                NOVA<span className="text-blue-500">.</span>
+              </span>
             </div>
 
             <h2 className="mt-5 text-2xl font-bold">
@@ -432,7 +450,7 @@ export default function TrackOrderPage() {
 
                       <p className="mt-2 font-semibold">
                         {order.paymentMethod ||
-                          "Demo"}
+                          "Not available"}
                       </p>
                     </div>
 
@@ -452,8 +470,10 @@ export default function TrackOrderPage() {
                               : "text-zinc-500"
                         }`}
                       >
-                        {order.paymentStatus ||
-                          "Not available"}
+                        {order.paymentStatus === "Paid (Demo)"
+                          ? "Paid (Test)"
+                          : order.paymentStatus ||
+                            "Not available"}
                       </p>
                     </div>
 
@@ -523,7 +543,7 @@ export default function TrackOrderPage() {
                     <p className="mt-6 text-zinc-500">
                       Product details are
                       unavailable for this
-                      demo order.
+                      order.
                     </p>
                   )}
                 </section>
@@ -580,7 +600,7 @@ export default function TrackOrderPage() {
                           rel="noreferrer"
                           className="mt-6 inline-flex rounded-full border border-blue-600 px-5 py-3 text-sm font-semibold text-blue-600 transition hover:bg-blue-50"
                         >
-                          📍 Open Delivery Location →
+                          Open Delivery Location →
                         </a>
                       )}
                     </div>
@@ -685,4 +705,5 @@ export default function TrackOrderPage() {
     </main>
   );
 }
+
 

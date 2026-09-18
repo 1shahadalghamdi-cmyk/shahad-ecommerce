@@ -219,7 +219,7 @@ export default function CartPage() {
 
     if (!promo) {
       setPromoError(
-        "This promo code is not valid for the NOVA demo store.",
+        "This promo code is not valid.",
       );
       return;
     }
@@ -309,8 +309,10 @@ export default function CartPage() {
 
         {cartProducts.length === 0 ? (
           <div className="rounded-[2rem] border border-black/10 bg-white px-6 py-20 text-center">
-            <div className="text-7xl">
-              🛒
+            <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-[1.5rem] bg-zinc-950">
+              <span className="text-xl font-black tracking-tight text-white">
+                NOVA<span className="text-blue-500">.</span>
+              </span>
             </div>
 
             <h2 className="mt-6 text-2xl font-bold">
@@ -339,9 +341,23 @@ export default function CartPage() {
                     key={product.id}
                     className="flex flex-col gap-5 rounded-3xl border border-black/10 bg-white p-5 sm:flex-row"
                   >
-                    <div className="flex h-32 w-full shrink-0 items-center justify-center rounded-2xl bg-zinc-100 text-6xl sm:w-32">
-                      {product.icon}
-                    </div>
+                    <Link
+                      href={`/products/${product.id}`}
+                      className="flex h-32 w-full shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-zinc-100 sm:w-32"
+                      aria-label={`View ${product.name} details`}
+                    >
+                      {product.image ? (
+                        <img
+                          src={product.image}
+                          alt={product.name}
+                          className="h-full w-full object-contain p-3 transition duration-300 hover:scale-105"
+                        />
+                      ) : (
+                        <span className="text-xs font-semibold text-zinc-400">
+                          No Image
+                        </span>
+                      )}
+                    </Link>
 
                     <div className="flex flex-1 flex-col justify-between">
                       <div className="flex flex-wrap justify-between gap-4">
@@ -352,9 +368,14 @@ export default function CartPage() {
                             }
                           </p>
 
-                          <h2 className="mt-2 text-xl font-bold">
-                            {product.name}
-                          </h2>
+                          <Link
+                            href={`/products/${product.id}`}
+                            className="inline-block"
+                          >
+                            <h2 className="mt-2 text-xl font-bold transition hover:text-blue-600">
+                              {product.name}
+                            </h2>
+                          </Link>
 
                           <p className="mt-2 font-semibold">
                             {formatMoney(product.price)} SAR
@@ -462,12 +483,12 @@ export default function CartPage() {
                     </p>
 
                     <p className="mt-1 text-xs text-zinc-500">
-                      Apply a demo discount
+                      Apply an available discount code
                     </p>
                   </div>
 
-                  <span className="text-xl">
-                    🏷️
+                  <span className="rounded-full border border-white/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-widest text-zinc-400">
+                    Offer
                   </span>
                 </div>
 
@@ -529,13 +550,13 @@ export default function CartPage() {
 
                 {promoMessage && (
                   <p className="mt-3 text-xs leading-5 text-green-400">
-                    ✓ {promoMessage}
+                    {promoMessage}
                   </p>
                 )}
 
                 {promoError && (
                   <p className="mt-3 text-xs leading-5 text-red-400">
-                    ⚠️ {promoError}
+                    {promoError}
                   </p>
                 )}
 
@@ -635,9 +656,8 @@ export default function CartPage() {
               </Link>
 
               <p className="mt-4 text-center text-xs leading-5 text-zinc-500">
-                Portfolio discount simulation.
-                The applied promo is carried
-                into checkout.
+                Applied promo codes are carried
+                into checkout automatically.
               </p>
             </aside>
           </div>
@@ -646,4 +666,5 @@ export default function CartPage() {
     </main>
   );
 }
+
 
