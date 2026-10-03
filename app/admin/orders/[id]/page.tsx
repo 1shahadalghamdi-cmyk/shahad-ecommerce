@@ -10,7 +10,7 @@ type OrderStatus =
   | "Delivered";
 
 type PaymentStatus =
-  | "Paid (Demo)"
+  | "Paid"
   | "Pending";
 
 type OrderItem = {
@@ -155,7 +155,7 @@ export default function OrderDetailsPage() {
   function getPaymentStatusClasses(
     status?: PaymentStatus,
   ) {
-    if (status === "Paid (Demo)") {
+    if (status === "Paid") {
       return "border-green-200 bg-green-50 text-green-700";
     }
 
@@ -209,7 +209,7 @@ export default function OrderDetailsPage() {
       ? new Date(
           order.createdAt,
         ).toLocaleString()
-      : "Demo Order";
+      : "Date unavailable";
 
   const deliveryLocation =
     order.shippingAddress?.location;
@@ -353,7 +353,7 @@ export default function OrderDetailsPage() {
 
                   <p className="mt-2 font-semibold">
                     {order.paymentMethod ||
-                      "Demo Order"}
+                      "Not specified"}
                   </p>
                 </div>
 
@@ -521,8 +521,7 @@ export default function OrderDetailsPage() {
               ) : (
                 <p className="mt-6 text-zinc-500">
                   Shipping information is
-                  unavailable for this demo
-                  order.
+                  unavailable for this order.
                 </p>
               )}
             </section>
@@ -569,7 +568,7 @@ export default function OrderDetailsPage() {
               ) : (
                 <p className="mt-6 text-zinc-500">
                   Item details are unavailable
-                  for this demo order.
+                  for this order.
                 </p>
               )}
             </section>
@@ -613,7 +612,7 @@ export default function OrderDetailsPage() {
 
                 <span className="text-right">
                   {order.paymentMethod ||
-                    "Demo"}
+                    "Not specified"}
                 </span>
               </div>
 
@@ -624,7 +623,7 @@ export default function OrderDetailsPage() {
 
                 <span
                   className={
-                    order.paymentStatus === "Paid (Demo)"
+                    order.paymentStatus === "Paid"
                       ? "font-semibold text-green-400"
                       : order.paymentStatus === "Pending"
                         ? "font-semibold text-amber-400"

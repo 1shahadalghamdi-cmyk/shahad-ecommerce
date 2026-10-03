@@ -14,7 +14,7 @@ import { useStoreProducts } from "@/hooks/useStoreProducts";
 import { getStoredProducts, Product } from "@/lib/products";
 
 type PaymentMethod = "Card" | "Cash on Delivery";
-type PaymentStatus = "Paid (Demo)" | "Pending";
+type PaymentStatus = "Paid" | "Pending";
 
 type PromoCode =
   | "NOVA10"
@@ -767,7 +767,7 @@ export default function CheckoutPage() {
 
     const paymentStatus: PaymentStatus =
       paymentMethod === "Card"
-        ? "Paid (Demo)"
+        ? "Paid"
         : "Pending";
 
     const newOrder: StoredOrder = {
@@ -943,14 +943,14 @@ export default function CheckoutPage() {
               <p
                 className={`mt-2 font-semibold ${
                   confirmedPaymentStatus ===
-                  "Paid (Demo)"
+                  "Paid"
                     ? "text-green-600"
                     : "text-amber-600"
                 }`}
               >
                 {confirmedPaymentStatus ===
-                "Paid (Demo)"
-                  ? "Paid (Test)"
+                "Paid"
+                  ? "Paid"
                   : confirmedPaymentStatus}
               </p>
             </div>

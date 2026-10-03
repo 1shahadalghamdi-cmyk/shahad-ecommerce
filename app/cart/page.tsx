@@ -562,7 +562,7 @@ export default function CartPage() {
 
                 <div className="mt-4 border-t border-white/10 pt-4">
                   <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-500">
-                    Demo Codes
+                    Available Promo Codes
                   </p>
 
                   <div className="mt-3 flex flex-wrap gap-2">

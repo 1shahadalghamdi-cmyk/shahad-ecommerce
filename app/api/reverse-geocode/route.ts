@@ -61,7 +61,7 @@ export async function GET(request: Request) {
       )}&zoom=18&addressdetails=1`,
       {
         headers: {
-          "User-Agent": "NOVA-Ecommerce-Portfolio/1.0",
+          "User-Agent": "NOVA-Ecommerce/1.0",
           "Accept-Language": "en",
         },
         cache: "no-store",

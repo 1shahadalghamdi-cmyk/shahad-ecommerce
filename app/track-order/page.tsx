@@ -13,7 +13,7 @@ type OrderStatus =
   | "Delivered";
 
 type PaymentStatus =
-  | "Paid (Demo)"
+  | "Paid"
   | "Pending";
 
 type DeliveryLocation = {
@@ -462,7 +462,7 @@ export default function TrackOrderPage() {
                       <p
                         className={`mt-2 font-semibold ${
                           order.paymentStatus ===
-                          "Paid (Demo)"
+                          "Paid"
                             ? "text-green-600"
                             : order.paymentStatus ===
                                 "Pending"
@@ -470,8 +470,8 @@ export default function TrackOrderPage() {
                               : "text-zinc-500"
                         }`}
                       >
-                        {order.paymentStatus === "Paid (Demo)"
-                          ? "Paid (Test)"
+                        {order.paymentStatus === "Paid"
+                          ? "Paid"
                           : order.paymentStatus ||
                             "Not available"}
                       </p>
