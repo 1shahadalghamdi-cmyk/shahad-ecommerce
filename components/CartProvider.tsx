@@ -27,6 +27,8 @@ type CartContextType = {
   clearCart: () => void;
 };
 
+const CART_STORAGE_KEY = "nova-cart-session";
+
 const CartContext = createContext<CartContextType | undefined>(
   undefined,
 );
@@ -40,14 +42,29 @@ export function CartProvider({
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
+    // Remove the old persistent cart from previous versions.
+    window.localStorage.removeItem("nova-cart");
+
     const savedCart =
-      window.localStorage.getItem("nova-cart");
+      window.sessionStorage.getItem(
+        CART_STORAGE_KEY,
+      );
 
     if (savedCart) {
       try {
-        setCart(JSON.parse(savedCart));
+        const parsed = JSON.parse(savedCart);
+
+        if (Array.isArray(parsed)) {
+          setCart(parsed);
+        } else {
+          window.sessionStorage.removeItem(
+            CART_STORAGE_KEY,
+          );
+        }
       } catch {
-        window.localStorage.removeItem("nova-cart");
+        window.sessionStorage.removeItem(
+          CART_STORAGE_KEY,
+        );
       }
     }
 
@@ -57,8 +74,15 @@ export function CartProvider({
   useEffect(() => {
     if (!loaded) return;
 
-    window.localStorage.setItem(
-      "nova-cart",
+    if (cart.length === 0) {
+      window.sessionStorage.removeItem(
+        CART_STORAGE_KEY,
+      );
+      return;
+    }
+
+    window.sessionStorage.setItem(
+      CART_STORAGE_KEY,
       JSON.stringify(cart),
     );
   }, [cart, loaded]);
@@ -121,10 +145,14 @@ export function CartProvider({
 
   function clearCart() {
     setCart([]);
+    window.sessionStorage.removeItem(
+      CART_STORAGE_KEY,
+    );
   }
 
   const totalItems = cart.reduce(
-    (total, item) => total + item.quantity,
+    (total, item) =>
+      total + item.quantity,
     0,
   );
 
