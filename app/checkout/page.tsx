@@ -6,6 +6,7 @@ import {
   useMemo,
   useState,
 } from "react";
+
 import Link from "next/link";
 
 import { useCart } from "@/components/CartProvider";
@@ -118,7 +119,16 @@ function isValidExpiry(expiry: string) {
   }
 
   const now = new Date();
-  const expiryDate = new Date(year, month, 0, 23, 59, 59, 999);
+
+  const expiryDate = new Date(
+    year,
+    month,
+    0,
+    23,
+    59,
+    59,
+    999,
+  );
 
   return expiryDate >= now;
 }
@@ -126,7 +136,8 @@ function isValidExpiry(expiry: string) {
 export default function CheckoutPage() {
   const storeProducts = useStoreProducts();
 
-  const { cart, totalItems, clearCart } = useCart();
+  const { cart, totalItems, clearCart } =
+    useCart();
 
   useEffect(() => {
     const savedPromo =
@@ -155,12 +166,14 @@ export default function CheckoutPage() {
         );
       } else {
         setAppliedPromo(null);
+
         window.localStorage.removeItem(
           PROMO_STORAGE_KEY,
         );
       }
     } catch {
       setAppliedPromo(null);
+
       window.localStorage.removeItem(
         PROMO_STORAGE_KEY,
       );
@@ -170,36 +183,77 @@ export default function CheckoutPage() {
   const [paymentMethod, setPaymentMethod] =
     useState<PaymentMethod>("Card");
 
-  const [orderPlaced, setOrderPlaced] = useState(false);
-  const [orderNumber, setOrderNumber] = useState("");
-  const [confirmedTotal, setConfirmedTotal] = useState(0);
-  const [confirmedPaymentStatus, setConfirmedPaymentStatus] =
-    useState<PaymentStatus>("Pending");
+  const [orderPlaced, setOrderPlaced] =
+    useState(false);
+
+  const [orderNumber, setOrderNumber] =
+    useState("");
+
+  const [confirmedTotal, setConfirmedTotal] =
+    useState(0);
+
+  const [
+    confirmedPaymentStatus,
+    setConfirmedPaymentStatus,
+  ] = useState<PaymentStatus>("Pending");
 
   const [appliedPromo, setAppliedPromo] =
     useState<AppliedPromo | null>(null);
 
-  const [confirmedDiscount, setConfirmedDiscount] =
-    useState(0);
+  const [
+    confirmedDiscount,
+    setConfirmedDiscount,
+  ] = useState(0);
 
-  const [checkoutError, setCheckoutError] = useState("");
+  const [checkoutError, setCheckoutError] =
+    useState("");
 
-  const [deliveryLocation, setDeliveryLocation] =
-    useState<DeliveryLocation | null>(null);
+  const [
+    deliveryLocation,
+    setDeliveryLocation,
+  ] = useState<DeliveryLocation | null>(null);
 
-  const [locationStatus, setLocationStatus] = useState<
+  const [
+    locationStatus,
+    setLocationStatus,
+  ] = useState<
     "idle" | "loading" | "success" | "error"
   >("idle");
 
-  const [locationMessage, setLocationMessage] = useState("");
+  const [
+    locationMessage,
+    setLocationMessage,
+  ] = useState("");
+
+  const [shippingForm, setShippingForm] =
+    useState({
+      address: "",
+      city: "",
+      region: "",
+      postalCode: "",
+      country: "Saudi Arabia",
+    });
+
+  function updateShippingField(
+    field: keyof typeof shippingForm,
+    value: string,
+  ) {
+    setShippingForm((current) => ({
+      ...current,
+      [field]: value,
+    }));
+  }
 
   const cartProducts = useMemo(
     () =>
       cart
         .map((item) => {
-          const product = storeProducts.find(
-            (product) => product.id === item.productId,
-          );
+          const product =
+            storeProducts.find(
+              (product) =>
+                product.id ===
+                item.productId,
+            );
 
           if (!product) {
             return null;
@@ -211,14 +265,20 @@ export default function CheckoutPage() {
           };
         })
         .filter(
-          (item): item is NonNullable<typeof item> => item !== null,
+          (
+            item,
+          ): item is NonNullable<
+            typeof item
+          > => item !== null,
         ),
     [cart, storeProducts],
   );
 
   const subtotal = cartProducts.reduce(
     (total, product) =>
-      total + product.price * product.quantity,
+      total +
+      product.price *
+        product.quantity,
     0,
   );
 
@@ -255,16 +315,19 @@ export default function CheckoutPage() {
   );
 
   function getOrders() {
-    const savedOrders = window.localStorage.getItem(
-      "nova-admin-orders",
-    );
+    const savedOrders =
+      window.localStorage.getItem(
+        "nova-admin-orders",
+      );
 
     if (!savedOrders) {
       return [];
     }
 
     try {
-      return JSON.parse(savedOrders) as StoredOrder[];
+      return JSON.parse(
+        savedOrders,
+      ) as StoredOrder[];
     } catch {
       return [];
     }
@@ -276,49 +339,121 @@ export default function CheckoutPage() {
 
     if (!navigator.geolocation) {
       setLocationStatus("error");
+
       setLocationMessage(
         "Location services are not supported by this browser.",
       );
+
       return;
     }
 
     setLocationStatus("loading");
 
     navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setDeliveryLocation({
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-          accuracy: position.coords.accuracy,
-        });
+      async (position) => {
+        const location: DeliveryLocation = {
+          latitude:
+            position.coords.latitude,
+          longitude:
+            position.coords.longitude,
+          accuracy:
+            position.coords.accuracy,
+        };
 
-        setLocationStatus("success");
-        setLocationMessage(
-          "Location captured successfully. It will be attached to this order.",
-        );
+        setDeliveryLocation(location);
+
+        try {
+          const response = await fetch(
+            `/api/reverse-geocode?lat=${location.latitude}&lon=${location.longitude}`,
+          );
+
+          if (!response.ok) {
+            throw new Error(
+              "Reverse geocoding failed.",
+            );
+          }
+
+          const addressData =
+            (await response.json()) as {
+              address?: string;
+              city?: string;
+              region?: string;
+              postalCode?: string;
+              country?: string;
+            };
+
+          setShippingForm(
+            (current) => ({
+              address:
+                addressData.address ||
+                current.address,
+
+              city:
+                addressData.city ||
+                current.city,
+
+              region:
+                addressData.region ||
+                current.region,
+
+              postalCode:
+                addressData.postalCode ||
+                current.postalCode,
+
+              country:
+                addressData.country ||
+                current.country,
+            }),
+          );
+
+          setLocationStatus("success");
+
+          setLocationMessage(
+            "Location captured and address filled automatically. Please review the details before placing your order.",
+          );
+        } catch {
+          setLocationStatus("success");
+
+          setLocationMessage(
+            "Location captured successfully, but the address could not be filled automatically. Please enter the written address manually.",
+          );
+        }
       },
+
       (error) => {
         setDeliveryLocation(null);
         setLocationStatus("error");
 
-        if (error.code === error.PERMISSION_DENIED) {
+        if (
+          error.code ===
+          error.PERMISSION_DENIED
+        ) {
           setLocationMessage(
             "Location permission was denied. You can continue using the written address only.",
           );
+
           return;
         }
 
-        if (error.code === error.POSITION_UNAVAILABLE) {
+        if (
+          error.code ===
+          error.POSITION_UNAVAILABLE
+        ) {
           setLocationMessage(
             "Your current location is unavailable. Please try again.",
           );
+
           return;
         }
 
-        if (error.code === error.TIMEOUT) {
+        if (
+          error.code ===
+          error.TIMEOUT
+        ) {
           setLocationMessage(
             "Location request timed out. Please try again.",
           );
+
           return;
         }
 
@@ -326,6 +461,7 @@ export default function CheckoutPage() {
           "We could not capture your location. Please try again.",
         );
       },
+
       {
         enableHighAccuracy: true,
         timeout: 10000,
@@ -333,18 +469,24 @@ export default function CheckoutPage() {
       },
     );
   }
-
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    function handleSubmit(
+    event: FormEvent<HTMLFormElement>,
+  ) {
     event.preventDefault();
 
     setCheckoutError("");
 
     if (cartProducts.length === 0) {
-      setCheckoutError("Your cart is empty.");
+      setCheckoutError(
+        "Your cart is empty.",
+      );
+
       return;
     }
 
-    const formData = new FormData(event.currentTarget);
+    const formData = new FormData(
+      event.currentTarget,
+    );
 
     const firstName = String(
       formData.get("firstName") || "",
@@ -354,14 +496,21 @@ export default function CheckoutPage() {
       formData.get("lastName") || "",
     ).trim();
 
-    const email = String(formData.get("email") || "").trim();
-    const phone = String(formData.get("phone") || "").trim();
+    const email = String(
+      formData.get("email") || "",
+    ).trim();
+
+    const phone = String(
+      formData.get("phone") || "",
+    ).trim();
 
     const address = String(
       formData.get("address") || "",
     ).trim();
 
-    const city = String(formData.get("city") || "").trim();
+    const city = String(
+      formData.get("city") || "",
+    ).trim();
 
     const region = String(
       formData.get("region") || "",
@@ -372,7 +521,8 @@ export default function CheckoutPage() {
     ).trim();
 
     const country = String(
-      formData.get("country") || "Saudi Arabia",
+      formData.get("country") ||
+        "Saudi Arabia",
     ).trim();
 
     if (
@@ -400,11 +550,14 @@ export default function CheckoutPage() {
 
     if (paymentMethod === "Card") {
       const cardholderName = String(
-        formData.get("cardholderName") || "",
+        formData.get(
+          "cardholderName",
+        ) || "",
       ).trim();
 
       const cardNumber = String(
-        formData.get("cardNumber") || "",
+        formData.get("cardNumber") ||
+          "",
       )
         .replace(/\s+/g, "")
         .trim();
@@ -413,19 +566,27 @@ export default function CheckoutPage() {
         formData.get("expiry") || "",
       ).trim();
 
-      const cvv = String(formData.get("cvv") || "").trim();
+      const cvv = String(
+        formData.get("cvv") || "",
+      ).trim();
 
       if (!cardholderName) {
         setCheckoutError(
           "Please enter the cardholder name.",
         );
+
         return;
       }
 
-      if (!/^\d{13,19}$/.test(cardNumber)) {
+      if (
+        !/^\d{13,19}$/.test(
+          cardNumber,
+        )
+      ) {
         setCheckoutError(
           "Please enter a valid test card number using 13 to 19 digits.",
         );
+
         return;
       }
 
@@ -433,13 +594,17 @@ export default function CheckoutPage() {
         setCheckoutError(
           "Please enter a valid future expiry date in MM/YY format.",
         );
+
         return;
       }
 
-      if (!/^\d{3,4}$/.test(cvv)) {
+      if (
+        !/^\d{3,4}$/.test(cvv)
+      ) {
         setCheckoutError(
           "Please enter a valid 3 or 4 digit CVV.",
         );
+
         return;
       }
     }
@@ -449,19 +614,30 @@ export default function CheckoutPage() {
       Re-read inventory directly from localStorage at the moment
       the customer places the order.
     */
-    const currentInventory = getStoredProducts();
 
-    const unavailableItem = cartProducts.find((cartProduct) => {
-      const liveProduct = currentInventory.find(
-        (product) => product.id === cartProduct.id,
+    const currentInventory =
+      getStoredProducts();
+
+    const unavailableItem =
+      cartProducts.find(
+        (cartProduct) => {
+          const liveProduct =
+            currentInventory.find(
+              (product) =>
+                product.id ===
+                cartProduct.id,
+            );
+
+          if (!liveProduct) {
+            return true;
+          }
+
+          return (
+            liveProduct.stock <
+            cartProduct.quantity
+          );
+        },
       );
-
-      if (!liveProduct) {
-        return true;
-      }
-
-      return liveProduct.stock < cartProduct.quantity;
-    });
 
     if (unavailableItem) {
       setCheckoutError(
@@ -479,24 +655,41 @@ export default function CheckoutPage() {
     /*
       Use current inventory prices when the order is submitted.
     */
-    const confirmedItems = cartProducts.map((cartProduct) => {
-      const liveProduct = currentInventory.find(
-        (product) => product.id === cartProduct.id,
-      );
 
-      return {
-        productId: cartProduct.id,
-        name: liveProduct?.name || cartProduct.name,
-        price: liveProduct?.price || cartProduct.price,
-        quantity: cartProduct.quantity,
-      };
-    });
+    const confirmedItems =
+      cartProducts.map(
+        (cartProduct) => {
+          const liveProduct =
+            currentInventory.find(
+              (product) =>
+                product.id ===
+                cartProduct.id,
+            );
+
+          return {
+            productId:
+              cartProduct.id,
+
+            name:
+              liveProduct?.name ||
+              cartProduct.name,
+
+            price:
+              liveProduct?.price ||
+              cartProduct.price,
+
+            quantity:
+              cartProduct.quantity,
+          };
+        },
+      );
 
     const confirmedSubtotal =
       confirmedItems.reduce(
         (total, item) =>
           total +
-          item.price * item.quantity,
+          item.price *
+            item.quantity,
         0,
       );
 
@@ -536,49 +729,78 @@ export default function CheckoutPage() {
     /*
       Reduce inventory.
     */
-    const updatedInventory: Product[] = currentInventory.map(
-      (product) => {
-        const orderedItem = confirmedItems.find(
-          (item) => item.productId === product.id,
-        );
 
-        if (!orderedItem) {
-          return product;
-        }
+    const updatedInventory: Product[] =
+      currentInventory.map(
+        (product) => {
+          const orderedItem =
+            confirmedItems.find(
+              (item) =>
+                item.productId ===
+                product.id,
+            );
 
-        return {
-          ...product,
-          stock: product.stock - orderedItem.quantity,
-        };
-      },
-    );
+          if (!orderedItem) {
+            return product;
+          }
+
+          return {
+            ...product,
+            stock:
+              product.stock -
+              orderedItem.quantity,
+          };
+        },
+      );
 
     window.localStorage.setItem(
       "nova-admin-products",
-      JSON.stringify(updatedInventory),
+      JSON.stringify(
+        updatedInventory,
+      ),
     );
 
-    const generatedOrderNumber = `NOVA-${Date.now()
-      .toString()
-      .slice(-8)}`;
+    const generatedOrderNumber =
+      `NOVA-${Date.now()
+        .toString()
+        .slice(-8)}`;
 
     const paymentStatus: PaymentStatus =
-      paymentMethod === "Card" ? "Paid (Demo)" : "Pending";
+      paymentMethod === "Card"
+        ? "Paid (Demo)"
+        : "Pending";
 
     const newOrder: StoredOrder = {
       id: generatedOrderNumber,
-      customer: `${firstName} ${lastName}`.trim(),
+
+      customer:
+        `${firstName} ${lastName}`.trim(),
+
       email,
+
       phone,
-      subtotal: confirmedSubtotal,
-      discount: confirmedDiscount,
-      total: finalTotal,
+
+      subtotal:
+        confirmedSubtotal,
+
+      discount:
+        confirmedDiscount,
+
+      total:
+        finalTotal,
+
       promoCode:
         appliedPromo?.code,
-      status: "Processing",
+
+      status:
+        "Processing",
+
       paymentMethod,
+
       paymentStatus,
-      createdAt: new Date().toISOString(),
+
+      createdAt:
+        new Date().toISOString(),
 
       shippingAddress: {
         address,
@@ -586,29 +808,46 @@ export default function CheckoutPage() {
         region,
         postalCode,
         country,
+
         ...(deliveryLocation
           ? {
-              location: deliveryLocation,
+              location:
+                deliveryLocation,
             }
           : {}),
       },
 
-      items: confirmedItems,
+      items:
+        confirmedItems,
     };
 
-    const existingOrders = getOrders();
+    const existingOrders =
+      getOrders();
 
     window.localStorage.setItem(
       "nova-admin-orders",
-      JSON.stringify([newOrder, ...existingOrders]),
+      JSON.stringify([
+        newOrder,
+        ...existingOrders,
+      ]),
     );
 
-    setConfirmedTotal(finalTotal);
+    setConfirmedTotal(
+      finalTotal,
+    );
+
     setConfirmedDiscount(
       confirmedDiscount,
     );
-    setConfirmedPaymentStatus(paymentStatus);
-    setOrderNumber(generatedOrderNumber);
+
+    setConfirmedPaymentStatus(
+      paymentStatus,
+    );
+
+    setOrderNumber(
+      generatedOrderNumber,
+    );
+
     setOrderPlaced(true);
 
     clearCart();
@@ -651,17 +890,24 @@ export default function CheckoutPage() {
                 Order Number
               </p>
 
-              <p className="mt-2 text-xl font-bold">{orderNumber}</p>
+              <p className="mt-2 text-xl font-bold">
+                {orderNumber}
+              </p>
             </div>
 
-            {confirmedDiscount > 0 && (
+            {confirmedDiscount >
+              0 && (
               <div className="border-t border-black/10 pt-4">
                 <p className="text-xs uppercase tracking-widest text-zinc-400">
                   Discount
                 </p>
 
                 <p className="mt-2 font-semibold text-green-600">
-                  −{formatMoney(confirmedDiscount)} SAR
+                  −
+                  {formatMoney(
+                    confirmedDiscount,
+                  )}{" "}
+                  SAR
                 </p>
               </div>
             )}
@@ -672,7 +918,10 @@ export default function CheckoutPage() {
               </p>
 
               <p className="mt-2 text-lg font-bold">
-                {formatMoney(confirmedTotal)} SAR
+                {formatMoney(
+                  confirmedTotal,
+                )}{" "}
+                SAR
               </p>
             </div>
 
@@ -693,12 +942,14 @@ export default function CheckoutPage() {
 
               <p
                 className={`mt-2 font-semibold ${
-                  confirmedPaymentStatus === "Paid (Demo)"
+                  confirmedPaymentStatus ===
+                  "Paid (Demo)"
                     ? "text-green-600"
                     : "text-amber-600"
                 }`}
               >
-                {confirmedPaymentStatus === "Paid (Demo)"
+                {confirmedPaymentStatus ===
+                "Paid (Demo)"
                   ? "Paid (Test)"
                   : confirmedPaymentStatus}
               </p>
@@ -728,7 +979,9 @@ export default function CheckoutPage() {
 
           <div className="mt-9 flex flex-wrap justify-center gap-3">
             <Link
-              href={`/track-order?order=${encodeURIComponent(orderNumber)}`}
+              href={`/track-order?order=${encodeURIComponent(
+                orderNumber,
+              )}`}
               className="rounded-full bg-blue-600 px-8 py-4 font-semibold text-white transition hover:bg-blue-700"
             >
               Track Order →
@@ -740,20 +993,27 @@ export default function CheckoutPage() {
             >
               Back to Store
             </Link>
-
           </div>
         </div>
       </main>
     );
   }
 
-  if (cartProducts.length === 0) {
+  if (
+    cartProducts.length === 0
+  ) {
     return (
       <main className="min-h-screen bg-[#f7f7f5] text-zinc-950">
         <header className="border-b border-black/10 bg-white">
           <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5">
-            <Link href="/" className="text-2xl font-black">
-              NOVA<span className="text-blue-600">.</span>
+            <Link
+              href="/"
+              className="text-2xl font-black"
+            >
+              NOVA
+              <span className="text-blue-600">
+                .
+              </span>
             </Link>
           </div>
         </header>
@@ -762,7 +1022,10 @@ export default function CheckoutPage() {
           <div className="rounded-[2rem] border border-black/10 bg-white p-12">
             <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-[1.5rem] bg-zinc-950">
               <span className="text-xl font-black tracking-tight text-white">
-                NOVA<span className="text-blue-500">.</span>
+                NOVA
+                <span className="text-blue-500">
+                  .
+                </span>
               </span>
             </div>
 
@@ -788,14 +1051,18 @@ export default function CheckoutPage() {
 
   return (
     <main className="min-h-screen bg-[#f7f7f5] text-zinc-950">
-      {/* HEADER */}
+
+          {/* HEADER */}
       <header className="border-b border-black/10 bg-white">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5">
           <Link
             href="/"
             className="text-2xl font-black tracking-tight"
           >
-            NOVA<span className="text-blue-600">.</span>
+            NOVA
+            <span className="text-blue-600">
+              .
+            </span>
           </Link>
 
           <Link
@@ -830,7 +1097,9 @@ export default function CheckoutPage() {
         )}
 
         <form
-          onSubmit={handleSubmit}
+          onSubmit={
+            handleSubmit
+          }
           className="grid gap-8 lg:grid-cols-[1fr_400px]"
         >
           <div className="space-y-6">
@@ -922,11 +1191,17 @@ export default function CheckoutPage() {
 
                 <button
                   type="button"
-                  onClick={handleUseMyLocation}
-                  disabled={locationStatus === "loading"}
+                  onClick={
+                    handleUseMyLocation
+                  }
+                  disabled={
+                    locationStatus ===
+                    "loading"
+                  }
                   className="rounded-full border border-blue-600 px-5 py-3 text-sm font-semibold text-blue-600 transition hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {locationStatus === "loading"
+                  {locationStatus ===
+                  "loading"
                     ? "Getting Location..."
                     : deliveryLocation
                       ? "Location Added"
@@ -936,33 +1211,43 @@ export default function CheckoutPage() {
 
               <div className="mt-6 rounded-2xl border border-blue-100 bg-blue-50 p-4">
                 <p className="text-sm leading-6 text-zinc-600">
-                  Your written address is still required. You can also
-                  attach your current location as an optional delivery pin
-                  to help the fulfillment team locate the destination.
+                  Use your current location to autofill the shipping address
+                  and attach a delivery pin. Please review the address before
+                  placing your order.
                 </p>
 
                 {locationMessage && (
                   <p
                     className={`mt-3 text-sm font-medium ${
-                      locationStatus === "success"
+                      locationStatus ===
+                      "success"
                         ? "text-green-700"
-                        : locationStatus === "error"
+                        : locationStatus ===
+                            "error"
                           ? "text-red-600"
                           : "text-zinc-600"
                     }`}
                   >
-                    {locationMessage}
+                    {
+                      locationMessage
+                    }
                   </p>
                 )}
 
                 {deliveryLocation && (
                   <div className="mt-3 flex flex-wrap items-center gap-3 text-sm">
                     <span className="font-medium text-green-700">
-                      Latitude: {deliveryLocation.latitude.toFixed(5)}
+                      Latitude:{" "}
+                      {deliveryLocation.latitude.toFixed(
+                        5,
+                      )}
                     </span>
 
                     <span className="font-medium text-green-700">
-                      Longitude: {deliveryLocation.longitude.toFixed(5)}
+                      Longitude:{" "}
+                      {deliveryLocation.longitude.toFixed(
+                        5,
+                      )}
                     </span>
 
                     <a
@@ -989,6 +1274,18 @@ export default function CheckoutPage() {
                     type="text"
                     autoComplete="street-address"
                     placeholder="Street and building number"
+                    value={
+                      shippingForm.address
+                    }
+                    onChange={(
+                      event,
+                    ) =>
+                      updateShippingField(
+                        "address",
+                        event.target
+                          .value,
+                      )
+                    }
                     className="w-full rounded-xl border border-black/10 bg-[#f7f7f5] px-4 py-3 outline-none transition focus:border-blue-600"
                   />
                 </div>
@@ -1004,6 +1301,18 @@ export default function CheckoutPage() {
                     type="text"
                     autoComplete="address-level2"
                     placeholder="Dammam"
+                    value={
+                      shippingForm.city
+                    }
+                    onChange={(
+                      event,
+                    ) =>
+                      updateShippingField(
+                        "city",
+                        event.target
+                          .value,
+                      )
+                    }
                     className="w-full rounded-xl border border-black/10 bg-[#f7f7f5] px-4 py-3 outline-none transition focus:border-blue-600"
                   />
                 </div>
@@ -1019,6 +1328,18 @@ export default function CheckoutPage() {
                     type="text"
                     autoComplete="address-level1"
                     placeholder="Eastern Province"
+                    value={
+                      shippingForm.region
+                    }
+                    onChange={(
+                      event,
+                    ) =>
+                      updateShippingField(
+                        "region",
+                        event.target
+                          .value,
+                      )
+                    }
                     className="w-full rounded-xl border border-black/10 bg-[#f7f7f5] px-4 py-3 outline-none transition focus:border-blue-600"
                   />
                 </div>
@@ -1034,6 +1355,18 @@ export default function CheckoutPage() {
                     type="text"
                     autoComplete="postal-code"
                     placeholder="32241"
+                    value={
+                      shippingForm.postalCode
+                    }
+                    onChange={(
+                      event,
+                    ) =>
+                      updateShippingField(
+                        "postalCode",
+                        event.target
+                          .value,
+                      )
+                    }
                     className="w-full rounded-xl border border-black/10 bg-[#f7f7f5] px-4 py-3 outline-none transition focus:border-blue-600"
                   />
                 </div>
@@ -1046,20 +1379,41 @@ export default function CheckoutPage() {
                   <select
                     required
                     name="country"
-                    defaultValue="Saudi Arabia"
+                    value={
+                      shippingForm.country
+                    }
+                    onChange={(
+                      event,
+                    ) =>
+                      updateShippingField(
+                        "country",
+                        event.target
+                          .value,
+                      )
+                    }
                     autoComplete="country-name"
                     className="w-full rounded-xl border border-black/10 bg-[#f7f7f5] px-4 py-3 outline-none transition focus:border-blue-600"
                   >
-                    <option>Saudi Arabia</option>
-                    <option>Bahrain</option>
-                    <option>United Arab Emirates</option>
-                    <option>Kuwait</option>
+                    <option>
+                      Saudi Arabia
+                    </option>
+
+                    <option>
+                      Bahrain
+                    </option>
+
+                    <option>
+                      United Arab Emirates
+                    </option>
+
+                    <option>
+                      Kuwait
+                    </option>
                   </select>
                 </div>
               </div>
             </section>
-
-            {/* PAYMENT */}
+                        {/* PAYMENT */}
             <section className="rounded-[2rem] border border-black/10 bg-white p-7">
               <p className="text-xs font-semibold uppercase tracking-[0.25em] text-blue-600">
                 Step 3
@@ -1072,14 +1426,21 @@ export default function CheckoutPage() {
               <div className="mt-6 grid gap-4 sm:grid-cols-2">
                 <button
                   type="button"
-                  onClick={() => setPaymentMethod("Card")}
+                  onClick={() =>
+                    setPaymentMethod(
+                      "Card",
+                    )
+                  }
                   className={`rounded-2xl border p-5 text-left transition ${
-                    paymentMethod === "Card"
+                    paymentMethod ===
+                    "Card"
                       ? "border-blue-600 bg-blue-50"
                       : "border-black/10"
                   }`}
                 >
-                  <p className="font-semibold">Card Payment</p>
+                  <p className="font-semibold">
+                    Card Payment
+                  </p>
 
                   <p className="mt-1 text-sm text-zinc-500">
                     Secure checkout in test mode
@@ -1089,15 +1450,20 @@ export default function CheckoutPage() {
                 <button
                   type="button"
                   onClick={() =>
-                    setPaymentMethod("Cash on Delivery")
+                    setPaymentMethod(
+                      "Cash on Delivery",
+                    )
                   }
                   className={`rounded-2xl border p-5 text-left transition ${
-                    paymentMethod === "Cash on Delivery"
+                    paymentMethod ===
+                    "Cash on Delivery"
                       ? "border-blue-600 bg-blue-50"
                       : "border-black/10"
                   }`}
                 >
-                  <p className="font-semibold">Cash on Delivery</p>
+                  <p className="font-semibold">
+                    Cash on Delivery
+                  </p>
 
                   <p className="mt-1 text-sm text-zinc-500">
                     Payment stays pending until delivery
@@ -1105,7 +1471,8 @@ export default function CheckoutPage() {
                 </button>
               </div>
 
-              {paymentMethod === "Card" && (
+              {paymentMethod ===
+                "Card" && (
                 <div className="mt-6 rounded-2xl bg-zinc-100 p-5">
                   <div className="mb-5 rounded-xl border border-amber-200 bg-amber-50 p-4">
                     <p className="text-sm font-medium text-amber-800">
@@ -1142,7 +1509,9 @@ export default function CheckoutPage() {
                         inputMode="numeric"
                         autoComplete="off"
                         placeholder="4242 4242 4242 4242"
-                        maxLength={23}
+                        maxLength={
+                          23
+                        }
                         className="w-full rounded-xl border border-black/10 bg-white px-4 py-3 outline-none focus:border-blue-600"
                       />
                     </div>
@@ -1159,7 +1528,9 @@ export default function CheckoutPage() {
                         inputMode="numeric"
                         autoComplete="off"
                         placeholder="12/30"
-                        maxLength={5}
+                        maxLength={
+                          5
+                        }
                         className="w-full rounded-xl border border-black/10 bg-white px-4 py-3 outline-none focus:border-blue-600"
                       />
                     </div>
@@ -1176,7 +1547,9 @@ export default function CheckoutPage() {
                         inputMode="numeric"
                         autoComplete="off"
                         placeholder="123"
-                        maxLength={4}
+                        maxLength={
+                          4
+                        }
                         className="w-full rounded-xl border border-black/10 bg-white px-4 py-3 outline-none focus:border-blue-600"
                       />
                     </div>
@@ -1192,7 +1565,8 @@ export default function CheckoutPage() {
                 </div>
               )}
 
-              {paymentMethod === "Cash on Delivery" && (
+              {paymentMethod ===
+                "Cash on Delivery" && (
                 <div className="mt-6 rounded-2xl border border-black/10 bg-zinc-50 p-5">
                   <p className="font-semibold">
                     Cash on Delivery selected
@@ -1200,7 +1574,10 @@ export default function CheckoutPage() {
 
                   <p className="mt-2 text-sm leading-6 text-zinc-500">
                     The order will be created with payment status{" "}
-                    <strong>Pending</strong> until delivery.
+                    <strong>
+                      Pending
+                    </strong>{" "}
+                    until delivery.
                   </p>
                 </div>
               )}
@@ -1218,89 +1595,137 @@ export default function CheckoutPage() {
             </h2>
 
             <div className="mt-7 space-y-5">
-              {cartProducts.map((product) => (
-                <div
-                  key={product.id}
-                  className="flex items-center gap-4 border-b border-white/10 pb-5"
-                >
-                  <Link
-                    href={`/products/${product.id}`}
-                    className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white"
-                    aria-label={`View ${product.name} details`}
+              {cartProducts.map(
+                (product) => (
+                  <div
+                    key={
+                      product.id
+                    }
+                    className="flex items-center gap-4 border-b border-white/10 pb-5"
                   >
-                    {product.image ? (
-                      <img
-                        src={product.image}
-                        alt={product.name}
-                        className="h-full w-full object-contain p-1.5"
-                      />
-                    ) : (
-                      <span className="text-[9px] font-semibold text-zinc-400">
-                        No Image
-                      </span>
-                    )}
-                  </Link>
-
-                  <div className="min-w-0 flex-1">
                     <Link
                       href={`/products/${product.id}`}
-                      className="font-medium transition hover:text-blue-400"
+                      className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white"
+                      aria-label={`View ${product.name} details`}
                     >
-                      {product.name}
+                      {product.image ? (
+                        <img
+                          src={
+                            product.image
+                          }
+                          alt={
+                            product.name
+                          }
+                          className="h-full w-full object-contain p-1.5"
+                        />
+                      ) : (
+                        <span className="text-[9px] font-semibold text-zinc-400">
+                          No Image
+                        </span>
+                      )}
                     </Link>
 
-                    <p className="mt-1 text-xs text-zinc-500">
-                      Qty: {product.quantity}
+                    <div className="min-w-0 flex-1">
+                      <Link
+                        href={`/products/${product.id}`}
+                        className="font-medium transition hover:text-blue-400"
+                      >
+                        {
+                          product.name
+                        }
+                      </Link>
+
+                      <p className="mt-1 text-xs text-zinc-500">
+                        Qty:{" "}
+                        {
+                          product.quantity
+                        }
+                      </p>
+                    </div>
+
+                    <p className="font-semibold">
+                      {product.price *
+                        product.quantity}{" "}
+                      SAR
                     </p>
                   </div>
-
-                  <p className="font-semibold">
-                    {product.price * product.quantity} SAR
-                  </p>
-                </div>
-              ))}
+                ),
+              )}
             </div>
 
             <div className="mt-6 space-y-4 border-b border-white/10 pb-6 text-sm">
               <div className="flex justify-between text-zinc-400">
-                <span>Items</span>
-                <span className="text-white">{totalItems}</span>
+                <span>
+                  Items
+                </span>
+
+                <span className="text-white">
+                  {
+                    totalItems
+                  }
+                </span>
               </div>
 
               <div className="flex justify-between text-zinc-400">
-                <span>Subtotal</span>
-                <span className="text-white">{subtotal} SAR</span>
+                <span>
+                  Subtotal
+                </span>
+
+                <span className="text-white">
+                  {
+                    subtotal
+                  }{" "}
+                  SAR
+                </span>
               </div>
 
               {appliedPromo && (
                 <div className="flex justify-between gap-4 text-green-400">
                   <span>
-                    Discount ({appliedPromo.code})
+                    Discount (
+                    {
+                      appliedPromo.code
+                    }
+                    )
                   </span>
 
                   <span>
-                    −{formatMoney(discountAmount)} SAR
+                    −
+                    {formatMoney(
+                      discountAmount,
+                    )}{" "}
+                    SAR
                   </span>
                 </div>
               )}
 
               <div className="flex justify-between text-zinc-400">
-                <span>Shipping</span>
-                <span className="text-green-400">Free</span>
+                <span>
+                  Shipping
+                </span>
+
+                <span className="text-green-400">
+                  Free
+                </span>
               </div>
 
               <div className="flex justify-between text-zinc-400">
-                <span>Payment</span>
+                <span>
+                  Payment
+                </span>
 
                 <span className="text-white">
-                  {paymentMethod === "Card"
+                  {paymentMethod ===
+                  "Card"
                     ? "Card (Test Mode)"
                     : "Cash on Delivery"}
                 </span>
               </div>
 
               <div className="flex justify-between text-zinc-400">
-                <span>Delivery Pin</span>
+                <span>
+                  Delivery Pin
+                </span>
 
                 <span
                   className={
@@ -1309,15 +1734,23 @@ export default function CheckoutPage() {
                       : "text-zinc-500"
                   }
                 >
-                  {deliveryLocation ? "Attached" : "Optional"}
+                  {deliveryLocation
+                    ? "Attached"
+                    : "Optional"}
                 </span>
               </div>
             </div>
 
             <div className="flex justify-between py-6 text-xl font-bold">
-              <span>Total</span>
               <span>
-                {formatMoney(checkoutTotal)} SAR
+                Total
+              </span>
+
+              <span>
+                {formatMoney(
+                  checkoutTotal,
+                )}{" "}
+                SAR
               </span>
             </div>
 
@@ -1341,5 +1774,3 @@ export default function CheckoutPage() {
     </main>
   );
 }
-
-
